@@ -25,22 +25,25 @@ import {
   Wand2,
   Music,
   ChevronDown,
+  Upload,
+  Users,
 } from "lucide-react"
 import { AttachMenu } from "@/components/attach-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useState, useRef } from "react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 export default function Page() {
   const [inputValue, setInputValue] = useState("")
   const [showTooltip, setShowTooltip] = useState(false)
   const [showRecordDialog, setShowRecordDialog] = useState(false)
   const [showAvatarDialog, setShowAvatarDialog] = useState(false)
+  const [showPodcastDialog, setShowPodcastDialog] = useState(false)
   const [showAvatarPromptDialog, setShowAvatarPromptDialog] = useState(false)
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false)
   const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null)
   const [showThemeSelector, setShowThemeSelector] = useState(false)
-  const [selectedTheme, setSelectedTheme] = useState<string | null>(null)
   const [avatarPrompt, setAvatarPrompt] = useState("")
   const [isInputFlashing, setIsInputFlashing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -131,15 +134,17 @@ export default function Page() {
   }
 
   const handleThemeSelect = (themeId: string) => {
-    setSelectedTheme(themeId)
     setShowAvatarPromptDialog(false)
     setShowThemeSelector(false)
-    setInputValue("create a video with my AI avatar using the ${themeId} theme")
+    setInputValue(`create a video with my AI avatar using the ${themeId} theme`)
     highlightInput()
     // Reset states
     setAvatarPrompt("")
     setGeneratedAvatar(null)
-    setSelectedTheme(null)
+  }
+
+  const handleMakePodcast = () => {
+    setShowPodcastDialog(true)
   }
 
   return (
@@ -321,10 +326,12 @@ export default function Page() {
           {generatedAvatar && !isGeneratingAvatar && !showThemeSelector && (
             <div className="space-y-6">
               <div className="aspect-square max-w-[300px] mx-auto relative rounded-lg overflow-hidden">
-                <img 
+                <Image 
                   src={generatedAvatar} 
                   alt="Generated avatar"
-                  className="w-full h-full object-cover"
+                  className="object-cover"
+                  fill
+                  sizes="(max-width: 300px) 100vw, 300px"
                 />
               </div>
               
@@ -379,6 +386,70 @@ export default function Page() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Podcast Creation Dialog */}
+      <Dialog open={showPodcastDialog} onOpenChange={setShowPodcastDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Create Your Podcast</DialogTitle>
+            <DialogDescription className="pt-4">
+              Choose how you'd like to get started with your podcast
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-6 pt-4">
+            <button 
+              onClick={() => {
+                setShowPodcastDialog(false)
+                setInputValue("upload my existing podcast files")
+                highlightInput()
+              }}
+              className="flex items-center gap-4 p-4 rounded-lg border border-[#E5E5E5] hover:bg-gray-50 transition-colors text-left"
+            >
+              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <Upload className="h-6 w-6 text-blue-500" />
+              </div>
+              <div>
+                <h3 className="font-medium">Upload existing files</h3>
+                <p className="text-sm text-muted-foreground">Import audio files from your existing podcast episodes</p>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => {
+                setShowPodcastDialog(false)
+                setInputValue("record a new podcast episode with my camera")
+                highlightInput()
+              }}
+              className="flex items-center gap-4 p-4 rounded-lg border border-[#E5E5E5] hover:bg-gray-50 transition-colors text-left"
+            >
+              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <Video className="h-6 w-6 text-purple-500" />
+              </div>
+              <div>
+                <h3 className="font-medium">Record with camera</h3>
+                <p className="text-sm text-muted-foreground">Start recording a new episode with your camera and microphone</p>
+              </div>
+            </button>
+
+            <button 
+              onClick={() => {
+                setShowPodcastDialog(false)
+                setInputValue("start a remote recording session for my podcast")
+                highlightInput()
+              }}
+              className="flex items-center gap-4 p-4 rounded-lg border border-[#E5E5E5] hover:bg-gray-50 transition-colors text-left"
+            >
+              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <Users className="h-6 w-6 text-green-500" />
+              </div>
+              <div>
+                <h3 className="font-medium">Remote recording</h3>
+                <p className="text-sm text-muted-foreground">Record a podcast episode with remote participants</p>
+              </div>
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -495,7 +566,8 @@ export default function Page() {
             <ActionButton 
               icon={<Mic className="h-5 w-5 text-rose-500" />} 
               label="Make a podcast" 
-              className="bg-white hover:bg-gray-50 shadow-[0_0_10px_rgba(0,0,0,0.05)] border-[#E5E5E5]" 
+              className="bg-white hover:bg-gray-50 shadow-[0_0_10px_rgba(0,0,0,0.05)] border-[#E5E5E5]"
+              onClick={handleMakePodcast}
             />
             <ActionButton 
               icon={<Music className="h-5 w-5 text-teal-500" />} 
@@ -521,6 +593,7 @@ export default function Page() {
               title="AI Video Maker"
               description="Instant video from a prompt or a script."
               imageSrc="https://images.unsplash.com/photo-1536240478700-b869070f9279?w=800&auto=format&fit=crop&q=60"
+              href="/ai-video-maker"
             />
             <FeatureCard
               title="Translation"

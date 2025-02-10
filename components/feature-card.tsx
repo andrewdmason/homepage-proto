@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card"
 import Image from "next/image"
+import Link from "next/link"
 
 interface FeatureCardProps {
   title: string
@@ -7,33 +8,38 @@ interface FeatureCardProps {
   imageSrc: string
   isNew?: boolean
   onClick?: () => void
+  href?: string
 }
 
-export function FeatureCard({ title, description, imageSrc, isNew, onClick }: FeatureCardProps) {
+export function FeatureCard({ title, description, imageSrc, isNew, onClick, href }: FeatureCardProps) {
+  const CardWrapper = href ? Link : 'div'
+  const wrapperProps = href ? { href } : { onClick }
+
   return (
-    <Card 
-      className="overflow-hidden group hover:shadow-lg transition-shadow cursor-pointer"
-      onClick={onClick}
-    >
-      <CardContent className="flex items-center gap-4 p-4">
-        <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-          <Image
-            src={imageSrc}
-            alt={title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform"
-            sizes="80px"
-          />
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium">{title}</h3>
-            {isNew && <span className="rounded bg-orange-500 px-2 py-0.5 text-xs font-medium text-white">NEW</span>}
+    <CardWrapper {...wrapperProps}>
+      <Card 
+        className="overflow-hidden group hover:shadow-lg transition-shadow cursor-pointer"
+      >
+        <CardContent className="flex items-center gap-4 p-4">
+          <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+            <Image
+              src={imageSrc}
+              alt={title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform"
+              sizes="80px"
+            />
           </div>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium">{title}</h3>
+              {isNew && <span className="rounded bg-orange-500 px-2 py-0.5 text-xs font-medium text-white">NEW</span>}
+            </div>
+            <p className="text-sm text-muted-foreground">{description}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </CardWrapper>
   )
 }
 
