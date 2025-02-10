@@ -36,7 +36,8 @@ export default function AIVideoMaker() {
   const handleSend = () => {
     if (!inputValue.trim()) return
 
-    const newMessages = [...messages, { role: 'user', content: inputValue }]
+    const newUserMessage: Message = { role: 'user', content: inputValue }
+    const newMessages = [...messages, newUserMessage]
     setMessages(newMessages)
     setInputValue("")
 
@@ -70,15 +71,15 @@ export default function AIVideoMaker() {
         // Simulate video generation completion
         setTimeout(() => {
           setMessages(prev => [...prev, {
-            role: 'bot',
-            content: "Your video is ready! You can now preview it, make edits, or download it.",
+            role: 'bot' as const,
+            content: "Your video is ready! You can now preview it, make edits, or download it."
           }])
           setIsGenerating(false)
         }, 5000)
       } else {
         botResponse = {
           role: 'bot',
-          content: "That sounds great! I'll help you turn that into a compelling video. Would you like me to generate a draft script first, or should we move straight to video generation?",
+          content: "That sounds great! I'll help you turn that into a compelling video. Would you like me to generate a draft script first, or should we move straight to video generation?"
         }
       }
       
