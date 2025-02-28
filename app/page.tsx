@@ -40,13 +40,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { useRouter } from 'next/navigation'
 
 export default function Page() {
+  const router = useRouter()
   const [inputValue, setInputValue] = useState("")
   const [showTooltip, setShowTooltip] = useState(false)
   const [showRecordDialog, setShowRecordDialog] = useState(false)
   const [showAvatarDialog, setShowAvatarDialog] = useState(false)
-  const [showPodcastDialog, setShowPodcastDialog] = useState(false)
   const [showAvatarPromptDialog, setShowAvatarPromptDialog] = useState(false)
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false)
   const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null)
@@ -156,7 +157,7 @@ export default function Page() {
   }
 
   const handleMakePodcast = () => {
-    setShowPodcastDialog(true)
+    router.push(`/ai-chat?intent=podcast`)
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,11 +167,53 @@ export default function Page() {
     }
   }
 
+  const handleSubmit = () => {
+    if (!inputValue) return
+
+    // For translation, check if file is attached
+    if (inputValue.toLowerCase().includes("translate") && selectedFile) {
+      // Redirect to AI chat with file and translation intent
+      router.push(`/ai-chat?intent=translate&hasFile=true`)
+    } else if (inputValue.toLowerCase().includes("translate")) {
+      // Redirect to AI chat with just translation intent
+      router.push(`/ai-chat?intent=translate&hasFile=false`)
+    } else {
+      // For other cases like video maker, just pass the intent
+      router.push(`/ai-chat?intent=video-maker`)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b">
-        <div className="container flex h-14 items-center justify-end">
+        <div className="container flex h-14 items-center justify-between">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" className="gap-2">
+                <span>Homepage</span>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48">
+              <div className="grid gap-1">
+                <Button
+                  variant="ghost"
+                  className="justify-start font-normal"
+                  onClick={() => router.push('/')}
+                >
+                  Homepage
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="justify-start font-normal"
+                  onClick={() => router.push('/editor')}
+                >
+                  Editor
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button variant="ghost" className="gap-2">
             <span>asmith@descript.com</span>
             <ChevronDown className="h-4 w-4" />
@@ -640,70 +683,6 @@ export default function Page() {
         </DialogContent>
       </Dialog>
 
-      {/* Podcast Creation Dialog */}
-      <Dialog open={showPodcastDialog} onOpenChange={setShowPodcastDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">Create Your Podcast</DialogTitle>
-            <DialogDescription className="pt-4">
-              Choose how you'd like to get started with your podcast
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-6 pt-4">
-            <button 
-              onClick={() => {
-                setShowPodcastDialog(false)
-                setInputValue("upload my existing podcast files")
-                highlightInput()
-              }}
-              className="flex items-center gap-4 p-4 rounded-lg border border-[#E5E5E5] hover:bg-gray-50 transition-colors text-left"
-            >
-              <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Upload className="h-6 w-6 text-blue-500" />
-              </div>
-              <div>
-                <h3 className="font-medium">Upload existing files</h3>
-                <p className="text-sm text-muted-foreground">Import audio files from your existing podcast episodes</p>
-              </div>
-            </button>
-
-            <button 
-              onClick={() => {
-                setShowPodcastDialog(false)
-                setInputValue("record a new podcast episode with my camera")
-                highlightInput()
-              }}
-              className="flex items-center gap-4 p-4 rounded-lg border border-[#E5E5E5] hover:bg-gray-50 transition-colors text-left"
-            >
-              <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                <Video className="h-6 w-6 text-purple-500" />
-              </div>
-              <div>
-                <h3 className="font-medium">Record with camera</h3>
-                <p className="text-sm text-muted-foreground">Start recording a new episode with your camera and microphone</p>
-              </div>
-            </button>
-
-            <button 
-              onClick={() => {
-                setShowPodcastDialog(false)
-                setInputValue("start a remote recording session for my podcast")
-                highlightInput()
-              }}
-              className="flex items-center gap-4 p-4 rounded-lg border border-[#E5E5E5] hover:bg-gray-50 transition-colors text-left"
-            >
-              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                <Users className="h-6 w-6 text-green-500" />
-              </div>
-              <div>
-                <h3 className="font-medium">Remote recording</h3>
-                <p className="text-sm text-muted-foreground">Record a podcast episode with remote participants</p>
-              </div>
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Main Content */}
       <main className="container mx-auto max-w-4xl space-y-12 px-4 py-12">
         <div className="space-y-4 text-center">
@@ -721,6 +700,11 @@ export default function Page() {
               placeholder="I want to make..." 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSubmit()
+                }
+              }}
               className={cn(
                 "h-auto py-4 text-lg rounded-2xl border-[#DADADA] hover:border-[#999999] focus-visible:ring-0 focus-visible:border-[#999999] shadow-[0_0_10px_rgba(0,0,0,0.05)]",
                 "pr-14",
@@ -752,6 +736,7 @@ export default function Page() {
               <Button 
                 size="sm" 
                 disabled={!inputValue}
+                onClick={handleSubmit}
                 className={cn(
                   "transition-all duration-200",
                   inputValue 
@@ -849,7 +834,7 @@ export default function Page() {
               title="AI Video Maker"
               description="Instant video from a prompt or a script."
               imageSrc="https://images.unsplash.com/photo-1536240478700-b869070f9279?w=800&auto=format&fit=crop&q=60"
-              href="/ai-video-maker"
+              onClick={() => router.push('/ai-chat?intent=video-maker')}
             />
             <FeatureCard
               title="Translation"

@@ -34,6 +34,40 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+// Add TypedText component for animated text
+function TypedText({ content, className }: { content: string, className?: string }) {
+  const [displayedContent, setDisplayedContent] = useState('');
+  const [isComplete, setIsComplete] = useState(false);
+  
+  useEffect(() => {
+    setDisplayedContent('');
+    setIsComplete(false);
+    
+    let index = 0;
+    // Speed of typing animation (lower = faster)
+    const typingSpeed = 15;
+    
+    const timer = setInterval(() => {
+      if (index < content.length) {
+        setDisplayedContent(prev => prev + content.charAt(index));
+        index++;
+      } else {
+        clearInterval(timer);
+        setIsComplete(true);
+      }
+    }, typingSpeed);
+    
+    return () => clearInterval(timer);
+  }, [content]);
+  
+  return (
+    <div className={className}>
+      {displayedContent}
+      {!isComplete && <span className="inline-block w-1 h-4 ml-0.5 bg-blue-500 animate-pulse"></span>}
+    </div>
+  );
+}
+
 function ChatContent() {
   const searchParams = useSearchParams()
   const intent = searchParams.get('intent')
@@ -49,6 +83,7 @@ function ChatContent() {
   const [transcriptionProgress, setTranscriptionProgress] = useState(0)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [isFadingOut, setIsFadingOut] = useState(false)
+  const [hasUploadedFile, setHasUploadedFile] = useState(false)
 
   useEffect(() => {
     console.log('Current intent:', intent) // Debug log
@@ -187,6 +222,7 @@ function ChatContent() {
 
     const newFiles = Array.from(files)
     setUploadedFiles(prev => [...prev, ...newFiles])
+    setHasUploadedFile(true)
 
     // Add a message about the uploaded files
     const fileNames = newFiles.map(file => file.name).join(', ')
@@ -237,6 +273,7 @@ function ChatContent() {
 
     const newFiles = Array.from(files)
     setUploadedFiles(prev => [...prev, ...newFiles])
+    setHasUploadedFile(true)
 
     // Add a message about the uploaded files
     const fileNames = newFiles.map(file => file.name).join(', ')
@@ -276,6 +313,7 @@ function ChatContent() {
     // Start transcription progress simulation immediately
     setIsTranscribing(true)
     setTranscriptionProgress(0)
+    setHasUploadedFile(true)
     
     // Add AI response
     setTimeout(() => {
@@ -325,6 +363,7 @@ function ChatContent() {
     // Start transcription progress simulation immediately
     setIsTranscribing(true)
     setTranscriptionProgress(0)
+    setHasUploadedFile(true)
 
     // Add AI response about multiple tracks
     setTimeout(() => {
@@ -460,51 +499,38 @@ function ChatContent() {
                   : "bg-white border border-gray-200 shadow-sm"
               )}>
                 <div className="flex flex-col">
-                  <p className="text-sm">{message.content}</p>
+                  {message.role === 'assistant' ? (
+                    <TypedText content={message.content} className="text-sm" />
+                  ) : (
+                    <p className="text-sm">{message.content}</p>
+                  )}
                   
                   {/* Display file attachment with transcription progress for single file */}
                   {message.role === 'user' && message.content === 'Use this audio file for the podcast.' && (
                     <div className="mt-2 bg-white rounded-md border border-gray-200 p-2">
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2">
                         <div className="bg-orange-100 rounded-md p-1.5">
                           <FileAudio className="h-5 w-5 text-orange-600" />
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-medium">podcast_episode_interview.mp3</p>
-                          <p className="text-xs text-gray-500">Attachment</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs text-gray-500">Attachment</p>
+                            {isTranscribing && (
+                              <div className="flex items-center gap-1.5 ml-2">
+                                {transcriptionProgress < 100 ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                                    <span className="text-xs font-medium text-gray-700">{transcriptionProgress}%</span>
+                                  </>
+                                ) : (
+                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      
-                      {/* Transcription progress inside the file pill */}
-                      {isTranscribing && (
-                        <div className="mt-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-                              {transcriptionProgress < 100 ? (
-                                <>
-                                  <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
-                                  Transcribing...
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                  Transcription complete
-                                </>
-                              )}
-                            </span>
-                            <span className="text-xs text-gray-500">{transcriptionProgress}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-1.5">
-                            <div 
-                              className={cn(
-                                "h-1.5 rounded-full transition-all duration-300 ease-out",
-                                transcriptionProgress < 100 ? "bg-blue-600" : "bg-green-500"
-                              )}
-                              style={{ width: `${transcriptionProgress}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
                   
@@ -512,89 +538,55 @@ function ChatContent() {
                   {message.role === 'user' && message.content === 'Here are the host and guest tracks for the podcast.' && (
                     <div className="mt-2 space-y-2">
                       <div className="bg-white rounded-md border border-gray-200 p-2">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2">
                           <div className="bg-orange-100 rounded-md p-1.5">
                             <FileAudio className="h-5 w-5 text-orange-600" />
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-medium">podcast_interview_host.mp3</p>
-                            <p className="text-xs text-gray-500">Attachment</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs text-gray-500">Attachment</p>
+                              {isTranscribing && (
+                                <div className="flex items-center gap-1.5 ml-2">
+                                  {transcriptionProgress < 100 ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                                      <span className="text-xs font-medium text-gray-700">{transcriptionProgress}%</span>
+                                    </>
+                                  ) : (
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        
-                        {/* Transcription progress inside the first file pill */}
-                        {isTranscribing && (
-                          <div className="mt-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-                                {transcriptionProgress < 100 ? (
-                                  <>
-                                    <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
-                                    Transcribing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                    Transcription complete
-                                  </>
-                                )}
-                              </span>
-                              <span className="text-xs text-gray-500">{transcriptionProgress}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5">
-                              <div 
-                                className={cn(
-                                  "h-1.5 rounded-full transition-all duration-300 ease-out",
-                                  transcriptionProgress < 100 ? "bg-blue-600" : "bg-green-500"
-                                )}
-                                style={{ width: `${transcriptionProgress}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                       
                       <div className="bg-white rounded-md border border-gray-200 p-2">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2">
                           <div className="bg-orange-100 rounded-md p-1.5">
                             <FileAudio className="h-5 w-5 text-orange-600" />
                           </div>
                           <div className="flex-1">
                             <p className="text-sm font-medium">podcast_interview_guest.mp3</p>
-                            <p className="text-xs text-gray-500">Attachment</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-xs text-gray-500">Attachment</p>
+                              {isTranscribing && (
+                                <div className="flex items-center gap-1.5 ml-2">
+                                  {transcriptionProgress < 100 ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+                                      <span className="text-xs font-medium text-gray-700">{transcriptionProgress}%</span>
+                                    </>
+                                  ) : (
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        
-                        {/* Transcription progress inside the second file pill */}
-                        {isTranscribing && (
-                          <div className="mt-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-                                {transcriptionProgress < 100 ? (
-                                  <>
-                                    <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
-                                    Transcribing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                    Transcription complete
-                                  </>
-                                )}
-                              </span>
-                              <span className="text-xs text-gray-500">{transcriptionProgress}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5">
-                              <div 
-                                className={cn(
-                                  "h-1.5 rounded-full transition-all duration-300 ease-out",
-                                  transcriptionProgress < 100 ? "bg-blue-600" : "bg-green-500"
-                                )}
-                                style={{ width: `${transcriptionProgress}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -624,7 +616,7 @@ function ChatContent() {
                       </div>
                     </div>
                   )}
-                  {message.role === 'assistant' && intent === 'podcast' && i === 1 && (
+                  {message.role === 'assistant' && intent === 'podcast' && i === 1 && !hasUploadedFile && (
                     <div className="mt-4 space-y-3">
                       <p className="text-xs text-gray-500">Choose an option:</p>
                       <div className="flex flex-wrap gap-2">
