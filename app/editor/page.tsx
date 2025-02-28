@@ -81,6 +81,16 @@ export default function EditorPage() {
   ])
   const [currentSpeakerIndex, setCurrentSpeakerIndex] = useState(0)
   const [speakerLabelsOption, setSpeakerLabelsOption] = useState<'keep-unlabeled' | 'remove'>('keep-unlabeled')
+  
+  // Layout picker dialog state
+  const [showLayoutPicker, setShowLayoutPicker] = useState(false)
+  const [selectedLayout, setSelectedLayout] = useState<string | null>(null)
+  
+  // Layout creation dialog state
+  const [showLayoutCreation, setShowLayoutCreation] = useState(false)
+  const [layoutCreationStep, setLayoutCreationStep] = useState<'name' | 'templates' | 'customize'>('name')
+  const [newLayoutName, setNewLayoutName] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
 
   const handleRecordingChoice = (type: string, skipDialog: boolean = false) => {
     console.log(`Recording choice: ${type}, skipDialog: ${skipDialog}`)
@@ -395,7 +405,11 @@ export default function EditorPage() {
               {/* Canvas Toolbar */}
               <div className="flex justify-center mt-2">
                 <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm">
-                  <Button variant="ghost" className="text-[13px] px-4 py-1.5 h-8 rounded-l-lg hover:bg-gray-50">
+                  <Button 
+                    variant="ghost" 
+                    className="text-[13px] px-4 py-1.5 h-8 rounded-l-lg hover:bg-gray-50"
+                    onClick={() => setShowLayoutPicker(true)}
+                  >
                     Layout
                   </Button>
                   <div className="w-px h-4 bg-gray-200" />
@@ -1142,6 +1156,337 @@ export default function EditorPage() {
             )}
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
+      </Dialog>
+
+      {/* Layout Picker Dialog */}
+      <Dialog open={showLayoutPicker} onOpenChange={setShowLayoutPicker}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>Change layout pack</DialogTitle>
+            <DialogDescription>
+              Choose a layout pack to apply to your video
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div 
+              className={cn(
+                "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
+                selectedLayout === "intro" ? "border-blue-500 bg-blue-50" : ""
+              )}
+              onClick={() => setSelectedLayout("intro")}
+            >
+              <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
+                <img 
+                  src="/images/canvas-frame.png" 
+                  alt="Intro layout" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="font-medium text-sm">Intro</div>
+            </div>
+            
+            <div 
+              className={cn(
+                "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
+                selectedLayout === "speaker" ? "border-blue-500 bg-blue-50" : ""
+              )}
+              onClick={() => setSelectedLayout("speaker")}
+            >
+              <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
+                <img 
+                  src="/images/record-camera.png" 
+                  alt="Speaker layout" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="font-medium text-sm">Speaker</div>
+            </div>
+            
+            <div 
+              className={cn(
+                "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
+                selectedLayout === "captions" ? "border-blue-500 bg-blue-50" : ""
+              )}
+              onClick={() => setSelectedLayout("captions")}
+            >
+              <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
+                <img 
+                  src="/images/record-screen.png" 
+                  alt="Captions layout" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="font-medium text-sm">Captions</div>
+            </div>
+            
+            <div 
+              className={cn(
+                "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
+                selectedLayout === "list" ? "border-blue-500 bg-blue-50" : ""
+              )}
+              onClick={() => setSelectedLayout("list")}
+            >
+              <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
+                <img 
+                  src="/images/record-audio.png" 
+                  alt="List layout" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="font-medium text-sm">List</div>
+            </div>
+          </div>
+          
+          <div className="text-center">
+            <Button 
+              variant="link" 
+              className="text-blue-600 hover:text-blue-800"
+              onClick={() => setShowLayoutPicker(false)}
+            >
+              Change layout pack
+            </Button>
+          </div>
+          
+          <div className="border-t pt-4 mt-2">
+            <Button 
+              variant="outline" 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => {
+                // Handle create new layout pack
+                console.log("Create new layout pack");
+                // Close this dialog and open layout creation flow
+                setShowLayoutPicker(false);
+                setShowLayoutCreation(true);
+                setLayoutCreationStep('name');
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Create New Layout Pack
+            </Button>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLayoutPicker(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                // Apply the selected layout
+                console.log(`Applying layout: ${selectedLayout}`);
+                setShowLayoutPicker(false);
+              }}
+              disabled={!selectedLayout}
+            >
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Layout Creation Dialog */}
+      <Dialog 
+        open={showLayoutCreation} 
+        onOpenChange={(open) => {
+          if (!open) {
+            // Reset dialog state when closing
+            setLayoutCreationStep('name')
+            setNewLayoutName('')
+            setSelectedTemplate(null)
+          }
+          setShowLayoutCreation(open)
+        }}
+      >
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>
+              {layoutCreationStep === 'name' && 'Create New Layout Pack'}
+              {layoutCreationStep === 'templates' && 'Choose a Template'}
+              {layoutCreationStep === 'customize' && 'Customize Layout'}
+            </DialogTitle>
+            <DialogDescription>
+              {layoutCreationStep === 'name' && 'Give your layout pack a name to get started'}
+              {layoutCreationStep === 'templates' && 'Select a template as a starting point'}
+              {layoutCreationStep === 'customize' && 'Customize your layout settings'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {layoutCreationStep === 'name' && (
+            <div className="py-4 space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="layout-name" className="text-sm font-medium">
+                  Layout Pack Name
+                </label>
+                <input
+                  id="layout-name"
+                  type="text"
+                  className="w-full px-3 py-2 border rounded-md"
+                  placeholder="My Custom Layout"
+                  value={newLayoutName}
+                  onChange={(e) => setNewLayoutName(e.target.value)}
+                />
+              </div>
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowLayoutCreation(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => setLayoutCreationStep('templates')}
+                  disabled={!newLayoutName.trim()}
+                >
+                  Next
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+          
+          {layoutCreationStep === 'templates' && (
+            <div className="py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div 
+                  className={cn(
+                    "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
+                    selectedTemplate === "blank" ? "border-blue-500 bg-blue-50" : ""
+                  )}
+                  onClick={() => setSelectedTemplate("blank")}
+                >
+                  <div className="aspect-video bg-gray-100 rounded-md mb-2 flex items-center justify-center">
+                    <Square className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <div className="font-medium text-sm">Blank</div>
+                </div>
+                
+                <div 
+                  className={cn(
+                    "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
+                    selectedTemplate === "title" ? "border-blue-500 bg-blue-50" : ""
+                  )}
+                  onClick={() => setSelectedTemplate("title")}
+                >
+                  <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
+                    <img 
+                      src="/images/canvas-frame.png" 
+                      alt="Title template" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="font-medium text-sm">Title</div>
+                </div>
+                
+                <div 
+                  className={cn(
+                    "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
+                    selectedTemplate === "lower-third" ? "border-blue-500 bg-blue-50" : ""
+                  )}
+                  onClick={() => setSelectedTemplate("lower-third")}
+                >
+                  <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
+                    <img 
+                      src="/images/record-camera.png" 
+                      alt="Lower Third template" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="font-medium text-sm">Lower Third</div>
+                </div>
+                
+                <div 
+                  className={cn(
+                    "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
+                    selectedTemplate === "split-screen" ? "border-blue-500 bg-blue-50" : ""
+                  )}
+                  onClick={() => setSelectedTemplate("split-screen")}
+                >
+                  <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
+                    <img 
+                      src="/images/record-screen.png" 
+                      alt="Split Screen template" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="font-medium text-sm">Split Screen</div>
+                </div>
+              </div>
+              
+              <DialogFooter className="flex justify-between">
+                <Button variant="outline" onClick={() => setLayoutCreationStep('name')}>
+                  Back
+                </Button>
+                <Button 
+                  onClick={() => setLayoutCreationStep('customize')}
+                  disabled={!selectedTemplate}
+                >
+                  Next
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+          
+          {layoutCreationStep === 'customize' && (
+            <div className="py-4 space-y-4">
+              <div className="flex gap-4">
+                <div className="w-1/2">
+                  <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
+                    <img 
+                      src={selectedTemplate === "title" ? "/images/canvas-frame.png" : 
+                           selectedTemplate === "lower-third" ? "/images/record-camera.png" :
+                           selectedTemplate === "split-screen" ? "/images/record-screen.png" :
+                           "/images/record-audio.png"}
+                      alt="Template preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+                
+                <div className="w-1/2 space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Background Color</label>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-black border border-gray-200" />
+                      <span className="text-sm">#000000</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Text Color</label>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-white border border-gray-200" />
+                      <span className="text-sm">#FFFFFF</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Font</label>
+                    <select className="w-full px-3 py-2 border rounded-md text-sm">
+                      <option>Inter</option>
+                      <option>Roboto</option>
+                      <option>Montserrat</option>
+                      <option>Open Sans</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <DialogFooter className="flex justify-between">
+                <Button variant="outline" onClick={() => setLayoutCreationStep('templates')}>
+                  Back
+                </Button>
+                <Button 
+                  onClick={() => {
+                    // Create the layout pack
+                    console.log(`Creating layout pack: ${newLayoutName} with template: ${selectedTemplate}`);
+                    // Close the dialog
+                    setShowLayoutCreation(false);
+                    // Show success message or redirect
+                  }}
+                >
+                  Create Layout Pack
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   )
