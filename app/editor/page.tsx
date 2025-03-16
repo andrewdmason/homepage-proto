@@ -37,7 +37,9 @@ import {
   Layers3,
   MoveRight,
   ChevronRight,
-  Square
+  Square,
+  MousePointer,
+  Zap
 } from "lucide-react"
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -56,8 +58,6 @@ export default function EditorPage() {
   const router = useRouter()
   const [selectedRecordingType, setSelectedRecordingType] = useState<string | null>(null)
   const [insertionMode, setInsertionMode] = useState<'new-scene' | 'new-layer' | 'overwrite' | null>(null)
-  const [defaultRecordingType, setDefaultRecordingType] = useState<string | null>(null)
-  const [lastClickedType, setLastClickedType] = useState<string | null>(null)
   const [isRecordingMode, setIsRecordingMode] = useState(false)
   const [showScreenOptions, setShowScreenOptions] = useState(false)
   const [recordingConfig, setRecordingConfig] = useState({
@@ -101,8 +101,17 @@ export default function EditorPage() {
   // Add state for success message
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
 
-  const handleRecordingChoice = (type: string, skipDialog: boolean = false) => {
-    console.log(`Recording choice: ${type}, skipDialog: ${skipDialog}`)
+  // Add new state for desktop app promotion dialog
+  const [showDesktopAppDialog, setShowDesktopAppDialog] = useState(false)
+
+  // Add new state for the "don't show again" preference
+  const [dontShowAgain, setDontShowAgain] = useState(false)
+
+  // Add new state for the redirect dialog mode
+  const [isRedirectMode, setIsRedirectMode] = useState(false)
+
+  const handleRecordingChoice = (type: string) => {
+    console.log(`Recording choice: ${type}`)
     
     // For collaborative recording, redirect to Descript Rooms
     if (type === 'collaborative') {
@@ -112,13 +121,9 @@ export default function EditorPage() {
     
     setSelectedRecordingType(type)
     
-    if (skipDialog) {
-      // If skipDialog is true, bypass the insertion dialog
-      proceedWithRecording(type, null, skipDialog)
-    } else if (type === 'camera' || type === 'voice') {
-      // For camera or voice recording, skip the insertion step
-      // These recording types proceed directly to recording without showing the insertion options
-      proceedWithRecording(type, null, false)
+    if (type === 'camera' || type === 'voice') {
+      // For camera or voice recording, proceed directly to recording
+      proceedWithRecording(type, null)
     }
     
     // Reset screen options view in case it was open
@@ -128,7 +133,7 @@ export default function EditorPage() {
   const handleScreenOptionChoice = (insertMode: 'new-scene' | 'new-layer') => {
     if (selectedRecordingType) {
       setInsertionMode(insertMode)
-      proceedWithRecording(selectedRecordingType, insertMode, false)
+      proceedWithRecording(selectedRecordingType, insertMode)
     } else {
       // Direct entry into recording mode from screen options
       setIsRecordingMode(true)
@@ -155,23 +160,15 @@ export default function EditorPage() {
       }
       
       // Set default recording type for the split button
-      setDefaultRecordingType('screen-overlay')
+      setSelectedRecordingType('screen-overlay')
     }
     
     // Reset the screen options view
     setShowScreenOptions(false)
   }
 
-  const proceedWithRecording = (type: string, insertMode: 'new-scene' | 'new-layer' | 'overwrite' | null, skipDialog: boolean) => {
-    console.log(`Proceeding with recording: ${type}, insertMode: ${insertMode}, skipDialog: ${skipDialog}`)
-    setLastClickedType(type)
-    if (skipDialog) {
-      setDefaultRecordingType(type)
-    } else {
-      // Set the default recording type even when not skipping dialog
-      // This ensures the split button shows the correct icon after closing recording mode
-      setDefaultRecordingType(type)
-    }
+  const proceedWithRecording = (type: string, insertMode: 'new-scene' | 'new-layer' | 'overwrite' | null) => {
+    console.log(`Proceeding with recording: ${type}, insertMode: ${insertMode}`)
     setIsRecordingMode(true)
     
     // Configure recording settings based on the type and insertion mode
@@ -217,15 +214,6 @@ export default function EditorPage() {
     setShowScreenOptions(false)
   }
 
-  const handleRecordClick = () => {
-    if (defaultRecordingType) {
-      handleRecordingChoice(defaultRecordingType, true)
-    } else {
-      // If no default recording type is set, show the popover
-      // The popover will be shown automatically when the chevron button is clicked
-    }
-  }
-
   // Handle start recording action
   const handleStartRecording = () => {
     setIsRecording(prev => !prev)
@@ -233,48 +221,10 @@ export default function EditorPage() {
     // Additional recording logic would go here
   }
 
-  // Helper function to get the appropriate icon for the recording type
-  const getRecordingTypeIcon = () => {
-    switch (defaultRecordingType) {
-      case 'camera':
-        return <Camera className="h-4 w-4" />;
-      case 'screen-overlay':
-        return <Monitor className="h-4 w-4" />;
-      case 'voice':
-        return <Mic className="h-4 w-4" />;
-      case 'collaborative':
-        return <Users className="h-4 w-4" />;
-      default:
-        return <Circle className="h-4 w-4" />;
-    }
-  }
-
-  // Helper function to get the label for the recording type
-  const getRecordingTypeLabel = () => {
-    return "Record";
-  }
-
-  // Add a new function to handle the initial screen option click
+  // Modify the handleScreenClick function
   const handleScreenClick = () => {
-    // Set recording mode to true to enter recording mode
-    setIsRecordingMode(true);
-    
-    // Set default recording type for the split button
-    setDefaultRecordingType('screen-overlay');
-    
-    // Configure default recording settings for screen
-    setRecordingConfig({
-      microphone: false,
-      camera: false,
-      screen: true,
-      computerAudio: true
-    });
-    
-    // Set recording mode to new-layer by default
-    setRecordingMode('new-layer');
-    
-    // Reset the screen options view in the recording options dialog
-    setShowScreenOptions(false);
+    // Show the desktop app promotion dialog instead of proceeding to recording
+    setShowDesktopAppDialog(true);
   }
 
   // Add a function to go back from screen options to main recording options
@@ -630,7 +580,7 @@ export default function EditorPage() {
                     )}
                   </Button>
                   
-                  <Popover defaultOpen={defaultRecordingType === 'screen-overlay'}>
+                  <Popover defaultOpen={selectedRecordingType === 'screen-overlay'}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="ghost"
@@ -642,7 +592,7 @@ export default function EditorPage() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[350px] p-0" align="start">
-                      {defaultRecordingType === 'screen-overlay' ? (
+                      {selectedRecordingType === 'screen-overlay' ? (
                         // Screen recording options
                         <div className="p-3">
                           <h3 className="text-lg font-medium mb-3">Screen Recording Options</h3>
@@ -736,262 +686,123 @@ export default function EditorPage() {
                 </div>
               </div>
             ) : (
-              // Original Timeline Toolbar
-              <>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <Layers className="h-4 w-4" />
-                    </Button>
-                    <span className="text-xs">Show layers</span>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <FileText className="h-4 w-4" />
+              <div className="flex-1 flex justify-center">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                    1x
                   </Button>
-                  <span className="text-xs">13s / 1m 53s</span>
-                </div>
-                <div className="flex-1 flex justify-center">
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                      1x
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <Play className="h-4 w-4" />
-                    </Button>
-                    {defaultRecordingType ? (
-                      // Show split button if a recording type has been selected before
-                      <div className="flex h-7">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-7 gap-1.5 text-red-500 border-red-500 hover:bg-red-50 hover:text-red-600 rounded-r-none border-r-0"
-                          onClick={handleRecordClick}
-                        >
-                          {getRecordingTypeIcon()}
-                          <span className="text-xs">{getRecordingTypeLabel()}</span>
-                        </Button>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="h-7 px-1 text-red-500 border-red-500 hover:bg-red-50 hover:text-red-600 rounded-l-none"
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <Play className="h-4 w-4" />
+                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7 gap-1.5 text-red-500 border-red-500 hover:bg-red-50 hover:text-red-600">
+                        <Circle className="h-4 w-4" />
+                        <span className="text-xs">Record</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[350px] p-0" align="start">
+                      {!showScreenOptions ? (
+                        // Main recording options screen
+                        <>
+                          <h3 className="text-lg font-medium mb-2">What would you like to record?</h3>
+                          <div className="flex flex-col gap-1">
+                            <button 
+                              onClick={() => handleRecordingChoice('camera')}
+                              className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
                             >
-                              <ChevronDown className="h-4 w-4" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[350px] p-0" align="start">
-                            <div className="p-3">
-                              {!showScreenOptions ? (
-                                // Main recording options screen
-                                <>
-                                  <h3 className="text-lg font-medium mb-2">What would you like to record?</h3>
-                                  <div className="flex flex-col gap-1">
-                                    <button 
-                                      onClick={() => handleRecordingChoice('camera')}
-                                      className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                    >
-                                      <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                        <img src="/images/record-camera.png" alt="Camera" className="w-full h-full object-contain" />
-                                      </div>
-                                      <span className="text-sm font-medium">Camera</span>
-                                    </button>
-
-                                    <button 
-                                      onClick={handleScreenClick}
-                                      className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                    >
-                                      <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                        <img src="/images/record-screen.png" alt="Screen" className="w-full h-full object-contain" />
-                                      </div>
-                                      <span className="text-sm font-medium">Screen</span>
-                                    </button>
-
-                                    <button 
-                                      onClick={() => handleRecordingChoice('voice')}
-                                      className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                    >
-                                      <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                        <img src="/images/record-audio.png" alt="Audio only" className="w-full h-full object-contain" />
-                                      </div>
-                                      <span className="text-sm font-medium">Audio only</span>
-                                    </button>
-
-                                    <hr className="my-1 border-gray-200" />
-
-                                    <button 
-                                      onClick={() => handleRecordingChoice('collaborative')}
-                                      className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                    >
-                                      <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                        <img src="/images/record-rooms.png" alt="Record with others" className="w-full h-full object-contain" />
-                                      </div>
-                                      <span className="text-sm font-medium">Record with others</span>
-                                    </button>
-                                  </div>
-                                </>
-                              ) : (
-                                // Screen options screen
-                                <>
-                                  <div className="flex items-center mb-4">
-                                    <button 
-                                      onClick={handleBackFromScreenOptions}
-                                      className="flex items-center text-sm text-gray-600 hover:text-gray-900"
-                                    >
-                                      <ChevronDown className="h-4 w-4 transform rotate-90 mr-1" />
-                                      Back
-                                    </button>
-                                    <h3 className="text-lg font-medium flex-1 text-center pr-5">Screen Recording Options</h3>
-                                  </div>
-                                  
-                                  <div className="flex flex-col gap-3">
-                                    <button 
-                                      onClick={() => handleScreenOptionChoice('new-layer')}
-                                      className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
-                                    >
-                                      <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                                        <Monitor className="h-8 w-8 text-blue-500" />
-                                        <MicOff className="h-5 w-5 text-red-500 absolute -bottom-1 -right-1" />
-                                      </div>
-                                      <div>
-                                        <span className="text-sm font-medium">New Layer</span>
-                                        <p className="text-xs text-gray-500">Without audio</p>
-                                      </div>
-                                    </button>
-                                    
-                                    <button 
-                                      onClick={() => handleScreenOptionChoice('new-scene')}
-                                      className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
-                                    >
-                                      <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                                        <Monitor className="h-8 w-8 text-green-500" />
-                                        <Mic className="h-5 w-5 text-green-500 absolute -bottom-1 -right-1" />
-                                      </div>
-                                      <div>
-                                        <span className="text-sm font-medium">Insert into Script</span>
-                                        <p className="text-xs text-gray-500">With audio narration</p>
-                                      </div>
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    ) : (
-                      // Show regular button if no recording type has been selected yet
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-red-500 border-red-500 hover:bg-red-50 hover:text-red-600">
-                            <Circle className="h-4 w-4" />
-                            <span className="text-xs">Record</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[350px] p-0" align="start">
-                          {!showScreenOptions ? (
-                            // Main recording options screen
-                            <>
-                              <h3 className="text-lg font-medium mb-2">What would you like to record?</h3>
-                              <div className="flex flex-col gap-1">
-                                <button 
-                                  onClick={() => handleRecordingChoice('camera')}
-                                  className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                >
-                                  <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                    <img src="/images/record-camera.png" alt="Camera" className="w-full h-full object-contain" />
-                                  </div>
-                                  <span className="text-sm font-medium">Camera</span>
-                                </button>
-
-                                <button 
-                                  onClick={handleScreenClick}
-                                  className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                >
-                                  <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                    <img src="/images/record-screen.png" alt="Screen" className="w-full h-full object-contain" />
-                                  </div>
-                                  <span className="text-sm font-medium">Screen</span>
-                                </button>
-
-                                <button 
-                                  onClick={() => handleRecordingChoice('voice')}
-                                  className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                >
-                                  <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                    <img src="/images/record-audio.png" alt="Audio only" className="w-full h-full object-contain" />
-                                  </div>
-                                  <span className="text-sm font-medium">Audio only</span>
-                                </button>
-
-                                <hr className="my-1 border-gray-200" />
-
-                                <button 
-                                  onClick={() => handleRecordingChoice('collaborative')}
-                                  className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                                >
-                                  <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                    <img src="/images/record-rooms.png" alt="Record with others" className="w-full h-full object-contain" />
-                                  </div>
-                                  <span className="text-sm font-medium">Record with others</span>
-                                </button>
+                              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                                <img src="/images/record-camera.png" alt="Camera" className="w-full h-full object-contain" />
                               </div>
-                            </>
-                          ) : (
-                            // Screen options screen
-                            <>
-                              <div className="flex items-center mb-4">
-                                <button 
-                                  onClick={handleBackFromScreenOptions}
-                                  className="flex items-center text-sm text-gray-600 hover:text-gray-900"
-                                >
-                                  <ChevronDown className="h-4 w-4 transform rotate-90 mr-1" />
-                                  Back
-                                </button>
-                                <h3 className="text-lg font-medium flex-1 text-center pr-5">Screen Recording Options</h3>
+                              <span className="text-sm font-medium">Camera</span>
+                            </button>
+
+                            <button 
+                              onClick={() => handleScreenClick()}
+                              className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                            >
+                              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                                <img src="/images/record-screen.png" alt="Screen" className="w-full h-full object-contain" />
                               </div>
-                              
-                              <div className="flex flex-col gap-3">
-                                <button 
-                                  onClick={() => handleScreenOptionChoice('new-layer')}
-                                  className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
-                                >
-                                  <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                                    <Monitor className="h-8 w-8 text-blue-500" />
-                                    <MicOff className="h-5 w-5 text-red-500 absolute -bottom-1 -right-1" />
-                                  </div>
-                                  <div>
-                                    <span className="text-sm font-medium">New Layer</span>
-                                    <p className="text-xs text-gray-500">Without audio</p>
-                                  </div>
-                                </button>
-                                
-                                <button 
-                                  onClick={() => handleScreenOptionChoice('new-scene')}
-                                  className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
-                                >
-                                  <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                                    <Monitor className="h-8 w-8 text-green-500" />
-                                    <Mic className="h-5 w-5 text-green-500 absolute -bottom-1 -right-1" />
-                                  </div>
-                                  <div>
-                                    <span className="text-sm font-medium">Insert into Script</span>
-                                    <p className="text-xs text-gray-500">With audio narration</p>
-                                  </div>
-                                </button>
+                              <span className="text-sm font-medium">Screen</span>
+                            </button>
+
+                            <button 
+                              onClick={() => handleRecordingChoice('voice')}
+                              className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                            >
+                              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                                <img src="/images/record-audio.png" alt="Audio only" className="w-full h-full object-contain" />
                               </div>
-                            </>
-                          )}
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                    <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs border-gray-200">
-                      <Scissors className="h-3.5 w-3.5" />
-                      Split
-                    </Button>
-                  </div>
+                              <span className="text-sm font-medium">Audio only</span>
+                            </button>
+
+                            <hr className="my-1 border-gray-200" />
+
+                            <button 
+                              onClick={() => handleRecordingChoice('collaborative')}
+                              className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                            >
+                              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                                <img src="/images/record-rooms.png" alt="Record with others" className="w-full h-full object-contain" />
+                              </div>
+                              <span className="text-sm font-medium">Record with others</span>
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        // Screen options screen
+                        <>
+                          <div className="flex items-center mb-4">
+                            <button 
+                              onClick={handleBackFromScreenOptions}
+                              className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+                            >
+                              <ChevronDown className="h-4 w-4 transform rotate-90 mr-1" />
+                              Back
+                            </button>
+                            <h3 className="text-lg font-medium flex-1 text-center pr-5">Screen Recording Options</h3>
+                          </div>
+                          
+                          <div className="flex flex-col gap-3">
+                            <button 
+                              onClick={() => handleScreenOptionChoice('new-layer')}
+                              className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
+                            >
+                              <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
+                                <Monitor className="h-8 w-8 text-blue-500" />
+                                <MicOff className="h-5 w-5 text-red-500 absolute -bottom-1 -right-1" />
+                              </div>
+                              <div>
+                                <span className="text-sm font-medium">New Layer</span>
+                                <p className="text-xs text-gray-500">Without audio</p>
+                              </div>
+                            </button>
+                            
+                            <button 
+                              onClick={() => handleScreenOptionChoice('new-scene')}
+                              className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
+                            >
+                              <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
+                                <Monitor className="h-8 w-8 text-green-500" />
+                                <Mic className="h-5 w-5 text-green-500 absolute -bottom-1 -right-1" />
+                              </div>
+                              <div>
+                                <span className="text-sm font-medium">Insert into Script</span>
+                                <p className="text-xs text-gray-500">With audio narration</p>
+                              </div>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                  <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs border-gray-200">
+                    <Scissors className="h-3.5 w-3.5" />
+                    Split
+                  </Button>
                 </div>
-              </>
+              </div>
             )}
           </div>
           <div className="flex-1 p-2">
@@ -1624,6 +1435,172 @@ export default function EditorPage() {
           </div>
         </div>
       )}
+
+      {/* Add Desktop App Promotion Dialog */}
+      <Dialog open={showDesktopAppDialog} onOpenChange={setShowDesktopAppDialog}>
+        <DialogContent className="sm:max-w-[600px]">
+          {!isRedirectMode ? (
+            // Download promotion content
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl">Get More Powerful Screen Recording</DialogTitle>
+                <DialogDescription className="text-base">
+                  Unlock advanced screen recording features with Descript Desktop
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="py-6 space-y-6">
+                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                  <img 
+                    src="/images/screen-recorder.png" 
+                    alt="Descript Desktop Screen Recorder" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-medium text-lg">Why use Descript Desktop?</h4>
+                  <ul className="space-y-3">
+                    <li className="flex items-start gap-3">
+                      <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <Monitor className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">Standalone Screen Recorder</span>
+                        <p className="text-sm text-gray-600">Record your screen anytime from your menu bar, without opening the Descript app.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                        <Layers3 className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">Seamless Project Integration</span>
+                        <p className="text-sm text-gray-600">Add recordings to your scenes while keeping your Descript project hidden and out of the way—perfect for cleaner, more professional captures.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                        <MoveRight className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <span className="font-medium">Instant Sharing</span>
+                        <p className="text-sm text-gray-600">Start recording with a global hotkey and get an instant shareable link copied to your clipboard—ready to share the moment you finish.</p>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                <DialogFooter className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowDesktopAppDialog(false);
+                      // Proceed with web-based recording
+                      setIsRecordingMode(true);
+                      setSelectedRecordingType('screen-overlay');
+                      setRecordingConfig({
+                        microphone: false,
+                        camera: false,
+                        screen: true,
+                        computerAudio: true
+                      });
+                      setRecordingMode('new-layer');
+                      setShowScreenOptions(false);
+                    }}
+                  >
+                    Continue in Browser
+                  </Button>
+                  <Button 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={() => {
+                      // Here you would add the actual download link
+                      window.open('https://descript.com/download', '_blank');
+                      setShowDesktopAppDialog(false);
+                    }}
+                  >
+                    Download Descript Desktop
+                  </Button>
+                </DialogFooter>
+
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center justify-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="dont-show-again"
+                      className="rounded border-gray-300"
+                      checked={dontShowAgain}
+                      onChange={(e) => setDontShowAgain(e.target.checked)}
+                    />
+                    <label htmlFor="dont-show-again" className="text-sm text-gray-600">
+                      Don't show this again
+                    </label>
+                  </div>
+                  
+                  <button 
+                    onClick={() => setIsRedirectMode(true)}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    If Descript Desktop is already installed, click here
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            // Redirect dialog content
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl">Open in Descript Desktop?</DialogTitle>
+                <DialogDescription className="text-base">
+                  Screen recording works better in the desktop app. Would you like to continue there?
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="py-6">
+                <div className="flex items-center justify-center">
+                  <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Monitor className="h-8 w-8 text-blue-600" />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowDesktopAppDialog(false);
+                    // Proceed with web-based recording
+                    setIsRecordingMode(true);
+                    setSelectedRecordingType('screen-overlay');
+                    setRecordingConfig({
+                      microphone: false,
+                      camera: false,
+                      screen: true,
+                      computerAudio: true
+                    });
+                    setRecordingMode('new-layer');
+                    setShowScreenOptions(false);
+                  }}
+                >
+                  Stay in Browser
+                </Button>
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    // Here you would add the actual deep link to the desktop app
+                    window.location.href = 'descript://screen-record';
+                    setShowDesktopAppDialog(false);
+                  }}
+                >
+                  Open Descript Desktop
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 
