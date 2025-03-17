@@ -39,7 +39,9 @@ import {
   ChevronRight,
   Square,
   MousePointer,
-  Zap
+  Zap,
+  Bookmark,
+  Minus
 } from "lucide-react"
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -60,6 +62,7 @@ export default function EditorPage() {
   const [insertionMode, setInsertionMode] = useState<'new-scene' | 'new-layer' | 'overwrite' | null>(null)
   const [isRecordingMode, setIsRecordingMode] = useState(false)
   const [showScreenOptions, setShowScreenOptions] = useState(false)
+  const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([])
   const [recordingConfig, setRecordingConfig] = useState({
     microphone: true,
     camera: true,
@@ -403,41 +406,122 @@ export default function EditorPage() {
                         Layout
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-4" align="center">
+                    <PopoverContent className="w-[300px] p-4" align="center" side="left" alignOffset={0} sideOffset={16}>
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-medium">Change layout pack</h3>
+                        <h3 className="font-medium">Descript</h3>
+                        <div className="flex items-center gap-2">
+                          <Search className="h-4 w-4 text-gray-500" />
+                          <Bell className="h-4 w-4 text-gray-500" />
+                          <Menu className="h-4 w-4 text-gray-500" />
+                        </div>
+                      </div>
+
+                      {/* Camera filter bar */}
+                      <div className="flex items-center gap-2 mb-4 px-1">
+                        <span className="text-xs text-gray-500">Camera:</span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => setSelectedSpeakers(['all'])}
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-xs border transition-colors",
+                              selectedSpeakers[0] === 'all'
+                                ? "bg-blue-50 border-blue-200 text-blue-700" 
+                                : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            )}
+                          >
+                            All
+                          </button>
+                          <button
+                            onClick={() => setSelectedSpeakers(['andrew'])}
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-xs border transition-colors",
+                              selectedSpeakers[0] === 'andrew'
+                                ? "bg-blue-50 border-blue-200 text-blue-700" 
+                                : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            )}
+                          >
+                            Andrew
+                          </button>
+                          <button
+                            onClick={() => setSelectedSpeakers(['tyler'])}
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-xs border transition-colors",
+                              selectedSpeakers[0] === 'tyler'
+                                ? "bg-blue-50 border-blue-200 text-blue-700" 
+                                : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            )}
+                          >
+                            Tyler
+                          </button>
+                        </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-3 py-2">
-                        {[
-                          { id: "intro", name: "Intro" },
-                          { id: "speaker", name: "Speaker" },
-                          { id: "captions", name: "Captions" },
-                          { id: "list", name: "List" },
-                          { id: "split", name: "Split" },
-                          { id: "minimal", name: "Minimal" }
-                        ].map((layout) => (
-                          <div 
-                            key={layout.id}
-                            className={cn(
-                              "border rounded-lg p-2 cursor-pointer hover:border-blue-500 transition-colors",
-                              selectedLayout === layout.id ? "border-blue-500 bg-blue-50" : ""
-                            )}
-                            onClick={() => {
-                              setSelectedLayout(layout.id);
-                              console.log(`Applying layout: ${layout.id}`);
-                            }}
-                          >
-                            <div className="aspect-video bg-gray-100 rounded-md mb-1 overflow-hidden">
-                              <img 
-                                src={`/images/canvas-frame.png`}
-                                alt={`${layout.name} layout`}
-                                className="w-full h-full object-cover"
-                              />
+                      <div className="h-[320px] overflow-y-auto pr-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { id: "camera-multi", name: "Camera (multi)", speakers: ['all'] },
+                            { id: "media-multi", name: "Media (Multi)", speakers: ['all'] },
+                            { id: "camera", name: "Camera", speakers: ['tyler', 'andrew'] },
+                            { id: "overlay", name: "Overlay", speakers: ['tyler', 'andrew'] },
+                            { id: "list", name: "List", speakers: ['tyler', 'andrew'] },
+                            { id: "split", name: "Split", speakers: ['tyler', 'andrew'] },
+                            { id: "minimal", name: "Minimal", speakers: ['tyler', 'andrew'] },
+                            { id: "spotlight", name: "Spotlight", speakers: ['tyler', 'andrew'] },
+                            { id: "sidekick", name: "Sidekick", speakers: ['tyler', 'andrew'] },
+                            { id: "cascade", name: "Cascade", speakers: ['tyler', 'andrew'] }
+                          ].filter(layout => {
+                            if (selectedSpeakers[0] === 'all') return layout.speakers.includes('all');
+                            if (selectedSpeakers.length === 0) return true;
+                            return layout.speakers.includes(selectedSpeakers[0]);
+                          }).map((layout) => (
+                            <div 
+                              key={layout.id}
+                              className={cn(
+                                "border rounded-lg p-2 cursor-pointer hover:border-blue-500 transition-colors",
+                                selectedLayout === layout.id ? "border-blue-500 bg-blue-50" : ""
+                              )}
+                              onClick={() => {
+                                setSelectedLayout(layout.id);
+                                console.log(`Applying layout: ${layout.id}`);
+                              }}
+                            >
+                              <div className="aspect-video bg-gray-100 rounded-md mb-1 overflow-hidden relative">
+                                <img 
+                                  src={
+                                    layout.id === "camera-multi" ? "/images/layout-previews/camera-multi.png" :
+                                    layout.id === "media-multi" ? "/images/layout-previews/media-multi.png" :
+                                    layout.id === "camera" ? "/images/layout-previews/camera.png" :
+                                    layout.id === "overlay" ? "/images/layout-previews/intro.png" :
+                                    layout.id === "list" ? "/images/layout-previews/screen.png" :
+                                    layout.id === "split" ? "/images/layout-previews/zoom.png" :
+                                    `/images/canvas-frame.png`
+                                  }
+                                  alt={`${layout.name} layout`}
+                                  className="w-full h-full object-cover"
+                                />
+                                {selectedSpeakers[0] === 'andrew' && layout.speakers.includes('andrew') && (
+                                  <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full border-2 border-white overflow-hidden shadow-sm">
+                                    <img 
+                                      src="/images/canvas-frame.png"
+                                      alt="Andrew"
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                )}
+                                {selectedSpeakers[0] === 'tyler' && layout.speakers.includes('tyler') && (
+                                  <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full border-2 border-white overflow-hidden shadow-sm">
+                                    <img 
+                                      src="/images/tyler-layout.png"
+                                      alt="Tyler"
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="font-medium text-xs text-center">{layout.name}</div>
                             </div>
-                            <div className="font-medium text-xs text-center">{layout.name}</div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                       
                       <div className="flex justify-center mt-4">
@@ -445,13 +529,81 @@ export default function EditorPage() {
                           variant="outline" 
                           className="text-xs w-full"
                           onClick={() => {
-                            // Open the layout gallery dialog
                             setShowLayoutGallery(true);
                             setGalleryTab('gallery');
                             setSelectedGalleryLayout(null);
                           }}
                         >
-                          Browse layout packs
+                          Change layout pack
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <div className="w-px h-4 bg-gray-200" />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        className="text-[13px] px-4 py-1.5 h-8 hover:bg-gray-50 flex items-center gap-1.5"
+                      >
+                        <Camera className="h-4 w-4" />
+                        Camera
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[240px] p-2" align="center">
+                      <div className="flex flex-col">
+                        <Button
+                          variant="ghost"
+                          className="justify-start font-normal h-9 px-3"
+                          onClick={() => {
+                            // Set canvas frame back to original
+                            const previewImage = document.querySelector('.aspect-video.w-full img') as HTMLImageElement;
+                            if (previewImage) {
+                              previewImage.src = '/images/canvas-frame.png';
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-blue-500" />
+                            Andrew
+                          </div>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="justify-start font-normal h-9"
+                          onClick={() => {
+                            // Update canvas frame to Tyler layout
+                            const previewImage = document.querySelector('.aspect-video.w-full img') as HTMLImageElement;
+                            if (previewImage) {
+                              previewImage.src = '/images/tyler-layout.png';
+                            }
+                          }}
+                        >
+                          Tyler
+                        </Button>
+                        <div className="h-px bg-gray-200 my-1" />
+                        <Button
+                          variant="ghost"
+                          className="justify-start font-normal h-9"
+                          onClick={() => {
+                            // Pre-select "All" filter in layout picker
+                            setSelectedSpeakers(['all']);
+                            // Close the camera popover and open layout popover
+                            const cameraPopover = document.activeElement as HTMLButtonElement;
+                            if (cameraPopover) {
+                              cameraPopover.blur(); // This will close the camera popover
+                            }
+                            // Set a timeout to open the layout popover
+                            setTimeout(() => {
+                              setShowLayoutGallery(false); // Ensure layout gallery is closed
+                              const layoutButton = document.querySelector('button.rounded-l-lg') as HTMLButtonElement;
+                              if (layoutButton) {
+                                layoutButton.click();
+                              }
+                            }, 150);
+                          }}
+                        >
+                          Change to multicam layout...
                         </Button>
                       </div>
                     </PopoverContent>
@@ -494,378 +646,174 @@ export default function EditorPage() {
 
         {/* Timeline - Now outside the flex container to be full width */}
         <div className="h-48 border-t bg-white flex flex-col">
-          <div className="border-b h-9 px-3 flex items-center">
-            {isRecordingMode ? (
-              // Recording Configuration Toolbar
-              <div className="flex-1 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  {/* Toggle Controls */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn("h-7 gap-2", !recordingConfig.microphone && "text-gray-400")}
-                    onClick={() => setRecordingConfig(prev => ({ ...prev, microphone: !prev.microphone }))}
-                  >
-                    {recordingConfig.microphone ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-                    <span className="text-xs">Mic</span>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn("h-7 gap-2", !recordingConfig.camera && "text-gray-400")}
-                    onClick={() => setRecordingConfig(prev => ({ ...prev, camera: !prev.camera }))}
-                  >
-                    {recordingConfig.camera ? <Camera className="h-4 w-4" /> : <CameraOff className="h-4 w-4" />}
-                    <span className="text-xs">Camera</span>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn("h-7 gap-2", !recordingConfig.screen && "text-gray-400")}
-                    onClick={() => setRecordingConfig(prev => ({ ...prev, screen: !prev.screen }))}
-                  >
-                    {recordingConfig.screen ? <Monitor className="h-4 w-4" /> : <MonitorOff className="h-4 w-4" />}
-                    <span className="text-xs">Screen</span>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn("h-7 gap-2", !recordingConfig.computerAudio && "text-gray-400")}
-                    onClick={() => setRecordingConfig(prev => ({ ...prev, computerAudio: !prev.computerAudio }))}
-                  >
-                    {recordingConfig.computerAudio ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                    <span className="text-xs">Computer Audio</span>
-                  </Button>
-                </div>
-
-                {/* Center Start Button with Cancel button to the left */}
-                <div className="flex-1 flex justify-center items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 gap-2"
-                    onClick={() => setIsRecordingMode(false)}
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="text-xs">Cancel</span>
-                  </Button>
-                  
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className={cn(
-                      "h-8 px-6 text-white rounded-full font-medium transition-colors",
-                      isRecording 
-                        ? "bg-gray-700 hover:bg-gray-800 relative" 
-                        : "bg-red-500 hover:bg-red-600"
-                    )}
-                    onClick={handleStartRecording}
-                  >
-                    {isRecording && (
-                      <span className="absolute inset-0 rounded-full animate-pulse bg-red-500 opacity-30"></span>
-                    )}
-                    {isRecording ? (
-                      <>
-                        <Square className="h-4 w-4 mr-1 fill-white relative z-10" />
-                        <span className="relative z-10">Stop</span>
-                      </>
-                    ) : (
-                      <>
-                        <Circle className="h-4 w-4 mr-1 fill-white" />
-                        <span>Start</span>
-                      </>
-                    )}
-                  </Button>
-                  
-                  <Popover defaultOpen={selectedRecordingType === 'screen-overlay'}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 gap-2 min-w-[120px]"
-                      >
-                        <span className="text-xs">{recordingMode === 'new-layer' ? 'New layer' : 'Insert into script'}</span>
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[350px] p-0" align="start">
-                      {selectedRecordingType === 'screen-overlay' ? (
-                        // Screen recording options
-                        <div className="p-3">
-                          <h3 className="text-lg font-medium mb-3">Screen Recording Options</h3>
-                          <div className="flex flex-col gap-3">
-                            <button 
-                              onClick={() => {
-                                setRecordingConfig({
-                                  microphone: false,
-                                  camera: false,
-                                  screen: true,
-                                  computerAudio: true
-                                });
-                                setRecordingMode('new-layer');
-                              }}
-                              className={`flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg ${recordingMode === 'new-layer' ? 'border-blue-500 bg-blue-50' : ''}`}
-                            >
-                              <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                                <Monitor className="h-8 w-8 text-blue-500" />
-                                <MicOff className="h-5 w-5 text-red-500 absolute -bottom-1 -right-1" />
-                              </div>
-                              <div>
-                                <span className="text-sm font-medium">New Layer</span>
-                                <p className="text-xs text-gray-500">Without audio</p>
-                              </div>
-                            </button>
-                            
-                            <button 
-                              onClick={() => {
-                                setRecordingConfig({
-                                  microphone: true,
-                                  camera: true,
-                                  screen: true,
-                                  computerAudio: true
-                                });
-                                setRecordingMode('insert-script');
-                              }}
-                              className={`flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg ${recordingMode === 'insert-script' ? 'border-green-500 bg-green-50' : ''}`}
-                            >
-                              <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                                <Monitor className="h-8 w-8 text-green-500" />
-                                <Mic className="h-5 w-5 text-green-500 absolute -bottom-1 -right-1" />
-                              </div>
-                              <div>
-                                <span className="text-sm font-medium">Insert into Script</span>
-                                <p className="text-xs text-gray-500">With audio narration</p>
-                              </div>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        // Regular recording mode options
-                        <div className="w-48">
-                          <div className="grid gap-1">
-                            <Button
-                              variant="ghost"
-                              className="justify-start font-normal"
-                              onClick={() => setRecordingMode('new-layer')}
-                            >
-                              <div className={cn(
-                                "mr-2 h-4 w-4 flex items-center justify-center",
-                                recordingMode === 'new-layer' ? "text-black" : "text-transparent"
-                              )}>
-                                •
-                              </div>
-                              New layer
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              className="justify-start font-normal"
-                              onClick={() => setRecordingMode('insert-script')}
-                            >
-                              <div className={cn(
-                                "mr-2 h-4 w-4 flex items-center justify-center",
-                                recordingMode === 'insert-script' ? "text-black" : "text-transparent"
-                              )}>
-                                •
-                              </div>
-                              Insert into script
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <Play className="h-4 w-4" />
-                  </Button>
-                </div>
+          {/* Timeline Toolbar */}
+          <div className="border-b h-10 px-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Bookmark className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Play className="h-4 w-4" />
+              </Button>
+              <div className="text-sm text-gray-600">
+                00s / 40s
               </div>
-            ) : (
-              <div className="flex-1 flex justify-center">
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                    1x
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                1x
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 gap-1.5">
+                    <div className="relative flex items-center justify-center">
+                      <div className="w-[14px] h-[14px] rounded-full bg-red-500" />
+                      <div className="absolute inset-0 rounded-full border-2 border-red-500 opacity-30" />
+                    </div>
+                    <span className="text-xs text-black">Record</span>
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <Play className="h-4 w-4" />
-                  </Button>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-7 gap-1.5 text-red-500 border-red-500 hover:bg-red-50 hover:text-red-600">
-                        <Circle className="h-4 w-4" />
-                        <span className="text-xs">Record</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[350px] p-0" align="start">
-                      {!showScreenOptions ? (
-                        // Main recording options screen
-                        <>
-                          <h3 className="text-lg font-medium mb-2">What would you like to record?</h3>
-                          <div className="flex flex-col gap-1">
-                            <button 
-                              onClick={() => handleRecordingChoice('camera')}
-                              className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                            >
-                              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                <img src="/images/record-camera.png" alt="Camera" className="w-full h-full object-contain" />
-                              </div>
-                              <span className="text-sm font-medium">Camera</span>
-                            </button>
-
-                            <button 
-                              onClick={() => handleScreenClick()}
-                              className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                            >
-                              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                <img src="/images/record-screen.png" alt="Screen" className="w-full h-full object-contain" />
-                              </div>
-                              <span className="text-sm font-medium">Screen</span>
-                            </button>
-
-                            <button 
-                              onClick={() => handleRecordingChoice('voice')}
-                              className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                            >
-                              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                <img src="/images/record-audio.png" alt="Audio only" className="w-full h-full object-contain" />
-                              </div>
-                              <span className="text-sm font-medium">Audio only</span>
-                            </button>
-
-                            <hr className="my-1 border-gray-200" />
-
-                            <button 
-                              onClick={() => handleRecordingChoice('collaborative')}
-                              className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                            >
-                              <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                                <img src="/images/record-rooms.png" alt="Record with others" className="w-full h-full object-contain" />
-                              </div>
-                              <span className="text-sm font-medium">Record with others</span>
-                            </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[350px] p-0" align="start">
+                  {!showScreenOptions ? (
+                    // Main recording options screen
+                    <>
+                      <h3 className="text-lg font-medium mb-2 p-3">What would you like to record?</h3>
+                      <div className="flex flex-col gap-1">
+                        <button 
+                          onClick={() => handleRecordingChoice('camera')}
+                          className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                        >
+                          <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                            <img src="/images/record-camera.png" alt="Camera" className="w-full h-full object-contain" />
                           </div>
-                        </>
-                      ) : (
-                        // Screen options screen
-                        <>
-                          <div className="flex items-center mb-4">
-                            <button 
-                              onClick={handleBackFromScreenOptions}
-                              className="flex items-center text-sm text-gray-600 hover:text-gray-900"
-                            >
-                              <ChevronDown className="h-4 w-4 transform rotate-90 mr-1" />
-                              Back
-                            </button>
-                            <h3 className="text-lg font-medium flex-1 text-center pr-5">Screen Recording Options</h3>
+                          <span className="text-sm font-medium">Camera</span>
+                        </button>
+
+                        <button 
+                          onClick={() => setShowDesktopAppDialog(true)}
+                          className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                        >
+                          <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                            <img src="/images/record-screen.png" alt="Screen" className="w-full h-full object-contain" />
                           </div>
-                          
-                          <div className="flex flex-col gap-3">
-                            <button 
-                              onClick={() => handleScreenOptionChoice('new-layer')}
-                              className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
-                            >
-                              <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                                <Monitor className="h-8 w-8 text-blue-500" />
-                                <MicOff className="h-5 w-5 text-red-500 absolute -bottom-1 -right-1" />
-                              </div>
-                              <div>
-                                <span className="text-sm font-medium">New Layer</span>
-                                <p className="text-xs text-gray-500">Without audio</p>
-                              </div>
-                            </button>
-                            
-                            <button 
-                              onClick={() => handleScreenOptionChoice('new-scene')}
-                              className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
-                            >
-                              <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                                <Monitor className="h-8 w-8 text-green-500" />
-                                <Mic className="h-5 w-5 text-green-500 absolute -bottom-1 -right-1" />
-                              </div>
-                              <div>
-                                <span className="text-sm font-medium">Insert into Script</span>
-                                <p className="text-xs text-gray-500">With audio narration</p>
-                              </div>
-                            </button>
+                          <span className="text-sm font-medium">Screen</span>
+                        </button>
+
+                        <button 
+                          onClick={() => handleRecordingChoice('voice')}
+                          className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                        >
+                          <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                            <img src="/images/record-audio.png" alt="Audio only" className="w-full h-full object-contain" />
                           </div>
-                        </>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                  <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs border-gray-200">
-                    <Scissors className="h-3.5 w-3.5" />
-                    Split
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="flex-1 p-2">
-            <div className="flex items-center gap-2 h-full">
-              <div className="flex flex-col items-center">
-                <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <span className="text-sm font-medium">Audio only</span>
+                        </button>
+
+                        <hr className="my-1 border-gray-200" />
+
+                        <button 
+                          onClick={() => handleRecordingChoice('collaborative')}
+                          className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                        >
+                          <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                            <img src="/images/record-rooms.png" alt="Record with others" className="w-full h-full object-contain" />
+                          </div>
+                          <span className="text-sm font-medium">Record with others</span>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    // Screen options screen
+                    <>
+                      <div className="flex items-center mb-4">
+                        <button 
+                          onClick={handleBackFromScreenOptions}
+                          className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+                        >
+                          <ChevronDown className="h-4 w-4 transform rotate-90 mr-1" />
+                          Back
+                        </button>
+                        <h3 className="text-lg font-medium flex-1 text-center pr-5">Screen Recording Options</h3>
+                      </div>
+                      
+                      <div className="flex flex-col gap-3">
+                        <button 
+                          onClick={() => handleScreenOptionChoice('new-layer')}
+                          className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
+                        >
+                          <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
+                            <Monitor className="h-8 w-8 text-blue-500" />
+                            <MicOff className="h-5 w-5 text-red-500 absolute -bottom-1 -right-1" />
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium">New Layer</span>
+                            <p className="text-xs text-gray-500">Without audio</p>
+                          </div>
+                        </button>
+                        
+                        <button 
+                          onClick={() => handleScreenOptionChoice('new-scene')}
+                          className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
+                        >
+                          <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
+                            <Monitor className="h-8 w-8 text-green-500" />
+                            <Mic className="h-5 w-5 text-green-500 absolute -bottom-1 -right-1" />
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium">Insert into Script</span>
+                            <p className="text-xs text-gray-500">With audio narration</p>
+                          </div>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </PopoverContent>
+              </Popover>
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs">
+                <Split className="h-3.5 w-3.5" />
+                Split
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Expand timeline</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Layers className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">100%</span>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Timeline Content */}
+          <div className="flex-1 p-2">
+            <div className="flex items-center gap-2 h-full">
               <div className="flex-1 bg-white rounded border relative">
-                {/* Time markers */}
-                <div className="absolute top-0 left-0 right-0 h-6 flex items-center px-2 text-xs text-gray-500">
-                  <div className="flex-1 flex justify-between">
-                    <span>0s</span>
-                    <span>10s</span>
-                    <span>20s</span>
-                    <span>30s</span>
-                    <span>40s</span>
-                    <span>50s</span>
+                {/* Time Ruler */}
+                <div className="absolute top-0 left-0 right-0 h-6 flex items-center px-4">
+                  <div className="flex-1 relative">
+                    {Array.from({ length: 9 }).map((_, i) => (
+                      <div key={i} className="absolute text-xs text-gray-500" style={{ left: `${i * 12.5}%` }}>
+                        {i * 5}s
+                      </div>
+                    ))}
                   </div>
                 </div>
                 
                 {/* Timeline content */}
                 <div className="absolute top-6 left-0 right-0 bottom-0">
-                  <div className="relative h-full">
-                    {/* First row with markers */}
-                    <div className="absolute top-0 left-0 right-0 h-6">
-                      {/* 0s marker (purple) */}
-                      <div className="absolute left-[60px] bottom-0 flex flex-col items-center">
-                        <div className="h-6 w-6 bg-purple-600 rounded-sm flex items-center justify-center">
-                          <div className="h-2 w-2 bg-white rounded-full"></div>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">0s</div>
-                      </div>
-                      
-                      {/* 14s marker (gray) */}
-                      <div className="absolute left-[250px] bottom-0 flex flex-col items-center">
-                        <div className="h-6 w-6 bg-gray-500 rounded-sm flex items-center justify-center">
-                          <div className="h-2 w-2 bg-white rounded-full"></div>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">14s</div>
-                      </div>
-                      
-                      {/* 10s marker (gray) */}
-                      <div className="absolute left-[550px] bottom-0 flex flex-col items-center">
-                        <div className="h-6 w-6 bg-gray-500 rounded-sm flex items-center justify-center">
-                          <div className="h-2 w-2 bg-white rounded-full"></div>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">10s</div>
-                      </div>
-                      
-                      {/* 11s marker (gray) */}
-                      <div className="absolute right-[100px] bottom-0 flex flex-col items-center">
-                        <div className="h-6 w-6 bg-gray-500 rounded-sm flex items-center justify-center">
-                          <div className="h-2 w-2 bg-white rounded-full"></div>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">11s</div>
-                      </div>
-                    </div>
-                    
-                    {/* Blue content area */}
-                    <div className="absolute top-[30px] left-[300px] right-[200px] h-10 bg-blue-200 rounded-sm"></div>
-                  </div>
+                  {/* Timeline content will go here */}
                 </div>
               </div>
             </div>
@@ -1179,428 +1127,8 @@ export default function EditorPage() {
               ))}
             </div>
           )}
-          
-          <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={() => setShowLayoutGallery(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => {
-                if (selectedGalleryLayout) {
-                  // Apply the selected layout
-                  console.log(`Applying layout: ${selectedGalleryLayout}`);
-                  
-                  // Find if it's a custom layout from myLayoutPacks
-                  const customLayout = myLayoutPacks.find(pack => pack.id === selectedGalleryLayout);
-                  
-                  if (customLayout) {
-                    console.log(`Applying custom layout: ${customLayout.name}`);
-                  }
-                  
-                  // Set as the selected layout
-                  setSelectedLayout(selectedGalleryLayout);
-                  setShowLayoutGallery(false);
-                }
-              }}
-              disabled={!selectedGalleryLayout}
-            >
-              Apply
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Layout Creation Dialog */}
-      <Dialog 
-        open={showLayoutCreation} 
-        onOpenChange={(open) => {
-          if (!open) {
-            // Reset dialog state when closing
-            setLayoutCreationStep('name')
-            setNewLayoutName('')
-            setSelectedTemplate(null)
-          }
-          setShowLayoutCreation(open)
-        }}
-      >
-        <DialogContent className="sm:max-w-[550px]">
-          <DialogHeader>
-            <DialogTitle>
-              {layoutCreationStep === 'name' && 'Create New Layout Pack'}
-              {layoutCreationStep === 'customize' && 'Customize Layout'}
-            </DialogTitle>
-            <DialogDescription>
-              {layoutCreationStep === 'name' && 'Give your layout pack a name to get started'}
-              {layoutCreationStep === 'customize' && 'Customize your layout settings'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {layoutCreationStep === 'name' && (
-            <div className="py-4 space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="layout-name" className="text-sm font-medium">
-                  Layout Pack Name
-                </label>
-                <input
-                  id="layout-name"
-                  type="text"
-                  className="w-full px-3 py-2 border rounded-md"
-                  placeholder="My Custom Layout"
-                  value={newLayoutName}
-                  onChange={(e) => setNewLayoutName(e.target.value)}
-                />
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowLayoutCreation(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => setLayoutCreationStep('templates')}
-                  disabled={!newLayoutName.trim()}
-                >
-                  Continue
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-          
-          {layoutCreationStep === 'templates' && (
-            <div className="py-4 space-y-4">
-              <DialogHeader>
-                <DialogTitle className="text-xl">Create your layout pack</DialogTitle>
-              </DialogHeader>
-              
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-medium mb-2">Remix a template</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Customize the colors and fonts to match your brand.
-                  </p>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    {[
-                      { id: 'default', name: 'Default' },
-                      { id: 'berlin-carrot', name: 'Berlin Carrot' },
-                      { id: 'helsinki-blue', name: 'Helsinki Blue' },
-                      { id: 'luxembourg-celery', name: 'Luxembourg Celery' },
-                      { id: 'libson-tofu', name: 'Libson Tofu' },
-                      { id: 'casablanca-clementine', name: 'Casablanca Clementine' }
-                    ].map((style) => (
-                      <div 
-                        key={style.id}
-                        className={cn(
-                          "border rounded-lg p-3 cursor-pointer hover:border-blue-500 transition-colors",
-                          selectedTemplate === style.id ? "border-blue-500 bg-blue-50" : ""
-                        )}
-                        onClick={() => setSelectedTemplate(style.id)}
-                      >
-                        <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
-                          <img 
-                            src={`/images/layout-packs/${style.id}.png`}
-                            alt={`${style.name} template`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="font-medium text-sm">{style.name}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="flex justify-center pt-4 text-center">
-                  <p className="text-sm">
-                    Feeling adventurous? <a href="#" className="text-blue-500 hover:underline" onClick={() => setSelectedTemplate("blank")}>[create a layout pack from scratch]</a>
-                  </p>
-                </div>
-              </div>
-              
-              <DialogFooter className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setLayoutCreationStep('name')}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => {
-                    // If no name has been set yet, go to the name step first
-                    if (!newLayoutName.trim()) {
-                      setLayoutCreationStep('name');
-                    } else {
-                      // Otherwise proceed to customize
-                      setLayoutCreationStep('customize');
-                    }
-                  }}
-                  disabled={!selectedTemplate}
-                >
-                  {newLayoutName.trim() ? 'Continue' : 'Continue'}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-          
-          {layoutCreationStep === 'customize' && (
-            <div className="py-4 space-y-4">
-              <div className="text-sm text-gray-600 mb-4">
-                Customize your layout pack to match your brand. You can adjust colors, fonts, and other settings.
-              </div>
-              
-              <div className="flex gap-4">
-                <div className="w-1/2">
-                  <div className="aspect-video bg-gray-100 rounded-md mb-2 overflow-hidden">
-                    <img 
-                      src={selectedTemplate === "blank" 
-                        ? "/images/record-audio.png" 
-                        : `/images/layout-packs/${selectedTemplate}.png`}
-                      alt="Template preview" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="text-center text-sm font-medium mt-1">
-                    {selectedTemplate === "blank" ? "Custom Layout" : 
-                     selectedTemplate === "default" ? "Default" :
-                     selectedTemplate === "berlin-carrot" ? "Berlin Carrot" :
-                     selectedTemplate === "helsinki-blue" ? "Helsinki Blue" :
-                     selectedTemplate === "luxembourg-celery" ? "Luxembourg Celery" :
-                     selectedTemplate === "libson-tofu" ? "Libson Tofu" :
-                     selectedTemplate === "casablanca-clementine" ? "Casablanca Clementine" :
-                     "Selected Template"}
-                  </div>
-                </div>
-                
-                <div className="w-1/2 space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Layout Pack Name</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border rounded-md"
-                      value={newLayoutName}
-                      onChange={(e) => setNewLayoutName(e.target.value)}
-                      placeholder="My Layout Pack"
-                    />
-                  </div>
-                
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Primary Color</label>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-500 border border-gray-200" />
-                      <span className="text-sm">#3B82F6</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Text Color</label>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-white border border-gray-200" />
-                      <span className="text-sm">#FFFFFF</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Font</label>
-                    <select className="w-full px-3 py-2 border rounded-md text-sm">
-                      <option>Inter</option>
-                      <option>Roboto</option>
-                      <option>Montserrat</option>
-                      <option>Open Sans</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              
-              <DialogFooter className="flex justify-between pt-4">
-                <Button variant="outline" onClick={() => setLayoutCreationStep('templates')}>
-                  Back
-                </Button>
-                <Button 
-                  onClick={() => {
-                    // Create the layout pack
-                    handleCreateLayoutPack();
-                  }}
-                  disabled={!newLayoutName.trim()}
-                >
-                  Create Layout Pack
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Success Message */}
-      {showSuccessMessage && (
-        <div className="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-md z-50 flex items-center">
-          <div className="mr-2">✓</div>
-          <div>
-            <p className="font-bold">Success!</p>
-            <p className="text-sm">Your layout pack "{newLayoutName}" has been created.</p>
-          </div>
-        </div>
-      )}
-
-      {/* Add Desktop App Promotion Dialog */}
-      <Dialog open={showDesktopAppDialog} onOpenChange={setShowDesktopAppDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          {!isRedirectMode ? (
-            // Download promotion content
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-xl">Get More Powerful Screen Recording</DialogTitle>
-                <DialogDescription className="text-base">
-                  Unlock advanced screen recording features with Descript Desktop
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="py-6 space-y-6">
-                <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                  <img 
-                    src="/images/screen-recorder.png" 
-                    alt="Descript Desktop Screen Recorder" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="font-medium text-lg">Why use Descript Desktop?</h4>
-                  <ul className="space-y-3">
-                    <li className="flex items-start gap-3">
-                      <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <Monitor className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <span className="font-medium">Standalone Screen Recorder</span>
-                        <p className="text-sm text-gray-600">Record your screen anytime from your menu bar, without opening the Descript app.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                        <Layers3 className="h-4 w-4 text-green-600" />
-                      </div>
-                      <div>
-                        <span className="font-medium">Seamless Project Integration</span>
-                        <p className="text-sm text-gray-600">Add recordings to your scenes while keeping your Descript project hidden and out of the way—perfect for cleaner, more professional captures.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <MoveRight className="h-4 w-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <span className="font-medium">Instant Sharing</span>
-                        <p className="text-sm text-gray-600">Start recording with a global hotkey and get an instant shareable link copied to your clipboard—ready to share the moment you finish.</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-6">
-                <DialogFooter className="flex gap-3">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setShowDesktopAppDialog(false);
-                      // Proceed with web-based recording
-                      setIsRecordingMode(true);
-                      setSelectedRecordingType('screen-overlay');
-                      setRecordingConfig({
-                        microphone: false,
-                        camera: false,
-                        screen: true,
-                        computerAudio: true
-                      });
-                      setRecordingMode('new-layer');
-                      setShowScreenOptions(false);
-                    }}
-                  >
-                    Continue in Browser
-                  </Button>
-                  <Button 
-                    className="bg-blue-600 hover:bg-blue-700"
-                    onClick={() => {
-                      // Here you would add the actual download link
-                      window.open('https://descript.com/download', '_blank');
-                      setShowDesktopAppDialog(false);
-                    }}
-                  >
-                    Download Descript Desktop
-                  </Button>
-                </DialogFooter>
-
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center justify-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="dont-show-again"
-                      className="rounded border-gray-300"
-                      checked={dontShowAgain}
-                      onChange={(e) => setDontShowAgain(e.target.checked)}
-                    />
-                    <label htmlFor="dont-show-again" className="text-sm text-gray-600">
-                      Don't show this again
-                    </label>
-                  </div>
-                  
-                  <button 
-                    onClick={() => setIsRedirectMode(true)}
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    If Descript Desktop is already installed, click here
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            // Redirect dialog content
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-xl">Open in Descript Desktop?</DialogTitle>
-                <DialogDescription className="text-base">
-                  Screen recording works better in the desktop app. Would you like to continue there?
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="py-6">
-                <div className="flex items-center justify-center">
-                  <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Monitor className="h-8 w-8 text-blue-600" />
-                  </div>
-                </div>
-              </div>
-
-              <DialogFooter className="flex gap-3">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setShowDesktopAppDialog(false);
-                    // Proceed with web-based recording
-                    setIsRecordingMode(true);
-                    setSelectedRecordingType('screen-overlay');
-                    setRecordingConfig({
-                      microphone: false,
-                      camera: false,
-                      screen: true,
-                      computerAudio: true
-                    });
-                    setRecordingMode('new-layer');
-                    setShowScreenOptions(false);
-                  }}
-                >
-                  Stay in Browser
-                </Button>
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700"
-                  onClick={() => {
-                    // Here you would add the actual deep link to the desktop app
-                    window.location.href = 'descript://screen-record';
-                    setShowDesktopAppDialog(false);
-                  }}
-                >
-                  Open Descript Desktop
-                </Button>
-              </DialogFooter>
-            </>
-          )}
         </DialogContent>
       </Dialog>
     </div>
   )
-} 
+}
