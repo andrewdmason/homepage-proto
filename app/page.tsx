@@ -211,6 +211,13 @@ export default function Page() {
                 >
                   Editor
                 </Button>
+                <Button
+                  variant="ghost"
+                  className="justify-start font-normal"
+                  onClick={() => router.push('/speaker-label')}
+                >
+                  Speaker Label Prototype
+                </Button>
               </div>
             </PopoverContent>
           </Popover>
