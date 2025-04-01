@@ -213,10 +213,17 @@ export default function Page() {
                 </Button>
                 <Button
                   variant="ghost"
-                  className="justify-start font-normal"
+                  className="w-full justify-start text-sm font-normal"
                   onClick={() => router.push('/speaker-label')}
                 >
                   Speaker Label Prototype
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-sm font-normal"
+                  onClick={() => router.push('/tunafish')}
+                >
+                  Tunafish
                 </Button>
               </div>
             </PopoverContent>

@@ -43,14 +43,16 @@ import {
   Bookmark,
   Minus,
   PaperclipIcon,
-  Wand2
+  Wand2,
+  MessageSquare,
+  MoreHorizontal
 } from "lucide-react"
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Lottie from "lottie-react"
 import newSceneAnimation from "../../public/animations/new-scene.json"
 import newLayerAnimation from "../../public/animations/new-layer.json"
@@ -74,6 +76,12 @@ export default function EditorPage() {
   })
   const [recordingMode, setRecordingMode] = useState<'new-layer' | 'insert-script'>('new-layer')
   
+  // Add state for selected scene thumbnail
+  const [selectedSceneIndex, setSelectedSceneIndex] = useState<number | null>(null)
+  
+  // Add state for tracking text selection
+  const [selectedTextRange, setSelectedTextRange] = useState<{start: number, end: number} | null>(null)
+  
   // Recording state
   const [isRecording, setIsRecording] = useState(false)
   
@@ -87,7 +95,7 @@ export default function EditorPage() {
   ])
   const [currentSpeakerIndex, setCurrentSpeakerIndex] = useState(0)
   const [speakerLabelsOption, setSpeakerLabelsOption] = useState<'keep-unlabeled' | 'remove'>('keep-unlabeled')
-  
+
   // Layout state
   const [selectedLayout, setSelectedLayout] = useState<string | null>(null)
   
@@ -136,6 +144,36 @@ export default function EditorPage() {
     { id: 'michael', name: 'Michael', description: 'Casual male voice' },
     { id: 'sophia', name: 'Sophia', description: 'Casual female voice' }
   ]
+
+  // Add canvasToolbarVisible state
+  const [isImageSelected, setIsImageSelected] = useState(false);
+  const [imageSrc, setImageSrc] = useState("/images/canvas-frame.png");
+  const [canvasToolbarVisible, setCanvasToolbarVisible] = useState(true);
+
+  // Add a state to track if text is selected
+  const [isTextSelected, setIsTextSelected] = useState(false);
+
+  // Add state for cursor position and editing
+  const [cursorPosition, setCursorPosition] = useState<{ node: Node | null, offset: number } | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [sceneBoundaries, setSceneBoundaries] = useState<number[]>([0, 1, 2]);
+
+  // Add document click handler to deselect when clicking outside
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      // Check if the click is outside the image container
+      const imageContainer = document.querySelector('.image-container');
+      if (imageContainer && !imageContainer.contains(e.target as Node)) {
+        setIsImageSelected(false);
+        setCanvasToolbarVisible(true); // Show bottom toolbar when deselected
+      }
+    };
+
+    document.addEventListener('click', handleDocumentClick);
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, []);
 
   const handleRecordingChoice = (type: string) => {
     console.log(`Recording choice: ${type}`)
@@ -305,6 +343,158 @@ export default function EditorPage() {
     }
   }
 
+  // Handler for selecting the image
+  const handleImageSelect = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent document click from firing immediately
+    setIsImageSelected(true);
+    setCanvasToolbarVisible(false); // Hide bottom toolbar when selected
+  };
+
+  // Handler for replacing the image
+  const handleReplaceImage = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering other events
+    // For demonstration, we'll just toggle between two images
+    setImageSrc(prev => prev === "/images/canvas-frame.png" ? 
+      "/images/tyler-layout.png" : "/images/canvas-frame.png");
+  };
+
+  // Add function to handle scene thumbnail click
+  const handleSceneThumbnailClick = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    setSelectedSceneIndex(index === selectedSceneIndex ? null : index);
+  };
+  
+  // Modify the handleSceneThumbnailDoubleClick function to also set text selection state
+  const handleSceneThumbnailDoubleClick = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    
+    // Keep the scene selected
+    setSelectedSceneIndex(index);
+    
+    // Simple selection method
+    setTimeout(() => {
+      // Get all the paragraphs from the script container
+      const scriptElement = document.querySelector('.space-y-4');
+      if (!scriptElement) return;
+      
+      // Use querySelectorAll to get all spans that contain scene thumbnails
+      const sceneBoundaries = scriptElement.querySelectorAll('span.cursor-pointer');
+      
+      // If we can't find the scene boundaries, exit
+      if (!sceneBoundaries || sceneBoundaries.length === 0) return;
+      
+      // Create a selection range
+      const range = document.createRange();
+      const selection = window.getSelection();
+      
+      // Set range to start immediately after the clicked scene boundary
+      const clickedBoundary = sceneBoundaries[index];
+      range.setStartAfter(clickedBoundary);
+      
+      // If there's another scene boundary after this, end there
+      if (index < sceneBoundaries.length - 1) {
+        range.setEndBefore(sceneBoundaries[index + 1]);
+      } else {
+        // If this is the last scene boundary, select to the end of the script
+        range.setEndAfter(scriptElement.lastChild as Node);
+      }
+      
+      // Apply the selection
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      
+      // Set text selection state to true
+      setIsTextSelected(true);
+    }, 50);
+  };
+
+  // Add a function to handle clicking outside to reset text selection state
+  useEffect(() => {
+    const handleDocumentClick = () => {
+      // Reset text selection state when clicking anywhere else
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim() === '') {
+        setIsTextSelected(false);
+      }
+    };
+    
+    document.addEventListener('click', handleDocumentClick);
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, []);
+
+  // Add click handler for the script content area to enable editing
+  const handleScriptClick = (e: React.MouseEvent) => {
+    setIsEditing(true);
+    
+    // Store current selection info
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      setCursorPosition({
+        node: range.startContainer,
+        offset: range.startOffset
+      });
+    }
+  };
+  
+  // Add key handler for detecting slash key to add scene boundary
+  const handleScriptKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === '/') {
+      e.preventDefault(); // Prevent the slash from being typed
+      
+      // Get current selection
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        
+        // Find the paragraph that contains the cursor
+        let paragraphNode = range.startContainer;
+        // If we're directly in a text node, find its parent paragraph
+        if (paragraphNode.nodeType === Node.TEXT_NODE) {
+          paragraphNode = paragraphNode.parentNode as Node;
+        }
+        
+        // Traverse up until we find a paragraph
+        while (paragraphNode && paragraphNode.nodeName !== 'P') {
+          paragraphNode = paragraphNode.parentNode as Node;
+        }
+        
+        if (paragraphNode) {
+          // Find the index of this paragraph in the script
+          const scriptContainer = document.querySelector('.space-y-4');
+          if (scriptContainer) {
+            const paragraphs = Array.from(scriptContainer.querySelectorAll('p'));
+            const paragraphIndex = paragraphs.indexOf(paragraphNode as HTMLParagraphElement);
+            
+            if (paragraphIndex !== -1) {
+              // Add a new scene boundary at this paragraph
+              if (!sceneBoundaries.includes(paragraphIndex)) {
+                const newBoundaries = [...sceneBoundaries, paragraphIndex].sort((a, b) => a - b);
+                setSceneBoundaries(newBoundaries);
+                
+                // Set the new boundary as selected
+                setSelectedSceneIndex(paragraphIndex);
+                
+                // Log for debugging
+                console.log(`Added scene boundary at paragraph ${paragraphIndex}`);
+              } else {
+                console.log(`Scene boundary already exists at paragraph ${paragraphIndex}`);
+              }
+            } else {
+              console.log('Paragraph not found in script');
+            }
+          } else {
+            console.log('Script container not found');
+          }
+        } else {
+          console.log('No paragraph found for cursor position');
+        }
+      }
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-white">
       {/* Top Navigation */}
@@ -389,12 +579,21 @@ export default function EditorPage() {
             <div className="border-b px-4 py-3">
               <h2 className="font-medium text-[13px]">Script</h2>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div 
+              className="flex-1 overflow-y-auto p-4 space-y-6"
+              onClick={handleScriptClick}
+              onKeyDown={handleScriptKeyDown}
+              tabIndex={0} // Make div focusable
+              style={{ outline: 'none' }} // Remove outline when focused
+              contentEditable={true} // Add contentEditable to show cursor
+              suppressContentEditableWarning={true} // Suppress React warnings
+            >
               <div className="flex items-start gap-2">
                 <div>
                   <div 
                     className="text-[15px] font-medium text-green-600 mb-1 cursor-pointer hover:underline"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent script click handler
                       setShowSpeakerDialog(true)
                       setSpeakerDialogStep('detection')
                     }}
@@ -404,9 +603,242 @@ export default function EditorPage() {
                   <div className="text-[15px] text-gray-800 mb-1">CEO</div>
                   <div className="space-y-4 text-[15px] text-gray-800">
                     <p>Hey there, so I have a little job for you. I would like you to edit this video for me. I'm going to walk you through exactly what I want you to do and where.</p>
-                    <p>Okay, part one. What I want you to do here in this part of the video right now is add one of those, uh, like lower thirds titles that shows my name. My name is Andrew Mason. My name should be showing still and I want you to, uh, also have my title, but make it so my title only shows up now. So that should have just animated in next to my name. And now you should have the whole thing go away.</p>
-                    <p>Now I want you to add an intro card called Descript Demo. I just want a title thing that says Descript Demo for like three seconds before the camera stuff comes in.</p>
-                    <p>Part three. Now I want you to add music. So I want you to find some stock music, put it in during the title card and have it like slowly fade out. As the title card ends and it goes into the actual speech.</p>
+                    
+                    <p>Okay, part one. What I want you to do here in this part of the video right now is add one of those, uh, like lower thirds titles that shows my name. My name is Andrew Mason. <span 
+                      className="inline-flex items-center mx-1 cursor-pointer relative"
+                      onClick={(e) => handleSceneThumbnailClick(0, e)}
+                      onDoubleClick={(e) => handleSceneThumbnailDoubleClick(0, e)}
+                    >
+                      {selectedSceneIndex === 0 && (
+                        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-10 animate-in fade-in duration-200">
+                          {!isTextSelected ? (
+                            // Simple toolbar with just the Change Layout button
+                            <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm">
+                              <Button 
+                                variant="ghost" 
+                                className="text-[13px] px-4 py-1.5 h-8 rounded-lg hover:bg-gray-50"
+                              >
+                                Change layout
+              </Button>
+            </div>
+                          ) : (
+                            // Expanded toolbar with all buttons
+                            <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm px-1">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <User className="h-4 w-4" />
+                  </Button>
+                              <Button variant="ghost" className="text-[13px] px-3 py-1 h-8">
+                                Change layout
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Layers className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <div className="font-mono text-[11px] font-bold">✓</div>
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Wand2 className="h-4 w-4" />
+                              </Button>
+                              <div className="h-4 w-px bg-gray-200" />
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 font-bold text-sm">
+                                S
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 font-bold text-sm">
+                                B
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 italic text-sm">
+                                I
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <div className="h-3 w-3 rounded-sm bg-amber-200" />
+                              </Button>
+                              <div className="h-4 w-px bg-gray-200" />
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Square className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                  </div>
+                          )}
+                </div>
+                      )}
+                      <img src="/images/canvas-frame.png" className={`h-6 w-6 rounded ${selectedSceneIndex === 0 ? 'border-2 border-blue-500' : 'border border-red-500'} object-cover`} alt="Scene thumbnail" />
+                    </span> My name should be showing still and I want you to, uh, also have my title, but make it so my title only shows up now. So that should have just animated in next to my name. And now you should have the whole thing go away.</p>
+                    
+                    <p>Now I want you to add an intro card called Descript Demo. <span 
+                      className="inline-flex items-center mx-1 cursor-pointer relative"
+                      onClick={(e) => handleSceneThumbnailClick(1, e)}
+                      onDoubleClick={(e) => handleSceneThumbnailDoubleClick(1, e)}
+                    >
+                      {selectedSceneIndex === 1 && (
+                        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-10 animate-in fade-in duration-200">
+                          {!isTextSelected ? (
+                            // Simple toolbar with just the Change Layout button
+                            <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm">
+                  <Button
+                    variant="ghost"
+                                className="text-[13px] px-4 py-1.5 h-8 rounded-lg hover:bg-gray-50"
+                  >
+                                Change layout
+                  </Button>
+            </div>
+                          ) : (
+                            // Expanded toolbar with all buttons
+                            <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm px-1">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <User className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" className="text-[13px] px-3 py-1 h-8">
+                                Change layout
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Layers className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <div className="font-mono text-[11px] font-bold">✓</div>
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Wand2 className="h-4 w-4" />
+                              </Button>
+                              <div className="h-4 w-px bg-gray-200" />
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 font-bold text-sm">
+                                S
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 font-bold text-sm">
+                                B
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 italic text-sm">
+                                I
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <div className="h-3 w-3 rounded-sm bg-amber-200" />
+                              </Button>
+                              <div className="h-4 w-px bg-gray-200" />
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Square className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+          </div>
+                          )}
+        </div>
+                      )}
+                      <img src="/images/layout-previews/camera.png" className={`h-6 w-6 rounded ${selectedSceneIndex === 1 ? 'border-2 border-blue-500' : 'border border-red-500'} object-cover`} alt="Scene thumbnail" />
+                    </span> I just want a title thing that says Descript Demo for like three seconds before the camera stuff comes in.</p>
+                    
+                    <p>Part three. Now I want you to add music. <span 
+                      className="inline-flex items-center mx-1 cursor-pointer relative"
+                      onClick={(e) => handleSceneThumbnailClick(2, e)}
+                      onDoubleClick={(e) => handleSceneThumbnailDoubleClick(2, e)}
+                    >
+                      {selectedSceneIndex === 2 && (
+                        <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-10 animate-in fade-in duration-200">
+                          {!isTextSelected ? (
+                            // Simple toolbar with just the Change Layout button
+                            <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm">
+                  <Button
+                    variant="ghost"
+                                className="text-[13px] px-4 py-1.5 h-8 rounded-lg hover:bg-gray-50"
+                  >
+                                Change layout
+                  </Button>
+                            </div>
+                          ) : (
+                            // Expanded toolbar with all buttons
+                            <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm px-1">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <User className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" className="text-[13px] px-3 py-1 h-8">
+                                Change layout
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Layers className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <div className="font-mono text-[11px] font-bold">✓</div>
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Wand2 className="h-4 w-4" />
+                              </Button>
+                              <div className="h-4 w-px bg-gray-200" />
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 font-bold text-sm">
+                                S
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 font-bold text-sm">
+                                B
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 italic text-sm">
+                                I
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <div className="h-3 w-3 rounded-sm bg-amber-200" />
+                              </Button>
+                              <div className="h-4 w-px bg-gray-200" />
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Square className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <img src="/images/layout-previews/intro.png" className={`h-6 w-6 rounded ${selectedSceneIndex === 2 ? 'border-2 border-blue-500' : 'border border-red-500'} object-cover`} alt="Scene thumbnail" />
+                    </span> So I want you to find some stock music, put it in during the title card and have it like slowly fade out. As the title card ends and it goes into the actual speech.</p>
+                    
+                    {/* Render dynamically added scene boundaries */}
+                    {sceneBoundaries.filter(idx => idx > 2).map((paragraphIndex) => {
+                      // Find the corresponding paragraph text from the DOM
+                      const getTextForParagraph = (index: number) => {
+                        const scriptContainer = document.querySelector('.space-y-4');
+                        if (scriptContainer) {
+                          const paragraphs = Array.from(scriptContainer.querySelectorAll('p'));
+                          if (paragraphs[index]) {
+                            // Extract text content
+                            return paragraphs[index].textContent || "This is a new paragraph with a scene boundary.";
+                          }
+                        }
+                        return "This is a new paragraph with a scene boundary.";
+                      };
+
+                      return (
+                        <p key={`dynamic-paragraph-${paragraphIndex}`}>
+                          {/* Use actual paragraph text or fallback */}
+                          {getTextForParagraph(paragraphIndex)} <span 
+                            className="inline-flex items-center mx-1 cursor-pointer relative"
+                            onClick={(e) => handleSceneThumbnailClick(paragraphIndex, e)}
+                            onDoubleClick={(e) => handleSceneThumbnailDoubleClick(paragraphIndex, e)}
+                          >
+                            {selectedSceneIndex === paragraphIndex && (
+                              <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-10 animate-in fade-in duration-200">
+                                <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm">
+                  <Button
+                    variant="ghost"
+                                    className="text-[13px] px-4 py-1.5 h-8 rounded-lg hover:bg-gray-50"
+                  >
+                                    Change layout
+                  </Button>
+                                </div>
+                              </div>
+                            )}
+                            <img src="/images/layout-previews/camera.png" className={`h-6 w-6 rounded ${selectedSceneIndex === paragraphIndex ? 'border-2 border-blue-500' : 'border border-red-500'} object-cover`} alt="Scene thumbnail" />
+                          </span>
+                        </p>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -441,244 +873,273 @@ export default function EditorPage() {
               <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-[13px] font-normal">
                 <PenTool className="h-4 w-4" />
                 Write
-              </Button>
+                  </Button>
             </div>
 
             {/* Video Preview */}
             <div className="flex-1 bg-white p-8 flex flex-col justify-center">
-              <div className="relative aspect-video w-full max-w-4xl mx-auto">
+              <div 
+                className={`relative aspect-video w-full max-w-4xl mx-auto image-container ${
+                  isImageSelected ? 'outline outline-1 outline-blue-500' : ''
+                }`}
+                onClick={handleImageSelect}
+              >
+                {isImageSelected && (
+                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-white border shadow-md rounded-md px-2 py-1 flex items-center z-10">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                      onClick={handleReplaceImage}
+                      className="flex items-center gap-1.5 text-xs h-8 hover:bg-gray-100"
+                  >
+                      <ImageIcon className="h-3.5 w-3.5 text-blue-500" />
+                      Replace
+                  </Button>
+                </div>
+                )}
                 <Image
-                  src="/images/canvas-frame.png"
+                  src={imageSrc}
                   alt="Video frame"
                   fill
                   className="object-contain"
                   priority
                 />
+                {isImageSelected && (
+                  <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none">
+                    {/* Corner handles */}
+                    <div className="absolute top-0 left-0 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm -translate-x-1/2 -translate-y-1/2"></div>
+                    <div className="absolute top-0 right-0 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm translate-x-1/2 -translate-y-1/2"></div>
+                    <div className="absolute bottom-0 left-0 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm -translate-x-1/2 translate-y-1/2"></div>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm translate-x-1/2 translate-y-1/2"></div>
+                    
+                    {/* Side handles */}
+                    <div className="absolute top-0 left-1/2 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm -translate-x-1/2 -translate-y-1/2"></div>
+                    <div className="absolute bottom-0 left-1/2 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm -translate-x-1/2 translate-y-1/2"></div>
+                    <div className="absolute left-0 top-1/2 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm -translate-x-1/2 -translate-y-1/2"></div>
+                    <div className="absolute right-0 top-1/2 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm translate-x-1/2 -translate-y-1/2"></div>
+                  </div>
+                )}
               </div>
-              {/* Canvas Toolbar */}
-              <div className="flex justify-center mt-2">
-                <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        className="text-[13px] px-4 py-1.5 h-8 rounded-l-lg hover:bg-gray-50"
-                      >
-                        Layout
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-4" align="center" side="left" alignOffset={0} sideOffset={16}>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-medium">Descript</h3>
-                        <div className="flex items-center gap-2">
-                          <Search className="h-4 w-4 text-gray-500" />
-                          <Bell className="h-4 w-4 text-gray-500" />
-                          <Menu className="h-4 w-4 text-gray-500" />
+              {/* Canvas Toolbar - conditionally visible */}
+              {canvasToolbarVisible && (
+                <div className="flex justify-center mt-2">
+                  <div className="flex items-center gap-1 bg-white border rounded-lg shadow-sm">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                          className="text-[13px] px-4 py-1.5 h-8 rounded-l-lg hover:bg-gray-50"
+                  >
+                          Layout
+                  </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-4" align="center" side="left" alignOffset={0} sideOffset={16}>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-medium">Descript</h3>
+                          <div className="flex items-center gap-2">
+                            <Search className="h-4 w-4 text-gray-500" />
+                            <Bell className="h-4 w-4 text-gray-500" />
+                            <Menu className="h-4 w-4 text-gray-500" />
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Camera filter bar */}
-                      <div className="flex items-center gap-2 mb-4 px-1">
-                        <span className="text-xs text-gray-500">Camera:</span>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => setSelectedSpeakers(['all'])}
-                            className={cn(
-                              "px-2 py-0.5 rounded-full text-xs border transition-colors",
-                              selectedSpeakers[0] === 'all'
-                                ? "bg-blue-50 border-blue-200 text-blue-700" 
-                                : "border-gray-200 text-gray-600 hover:border-gray-300"
-                            )}
+                        {/* Camera filter bar */}
+                        <div className="flex items-center gap-2 mb-4 px-1">
+                          <span className="text-xs text-gray-500">Camera:</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setSelectedSpeakers(['all'])}
+                    className={cn(
+                                "px-2 py-0.5 rounded-full text-xs border transition-colors",
+                                selectedSpeakers[0] === 'all'
+                                  ? "bg-blue-50 border-blue-200 text-blue-700" 
+                                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                              )}
+                            >
+                              All
+                            </button>
+                            <button
+                              onClick={() => setSelectedSpeakers(['andrew'])}
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-xs border transition-colors",
+                                selectedSpeakers[0] === 'andrew'
+                                  ? "bg-blue-50 border-blue-200 text-blue-700" 
+                                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                              )}
+                            >
+                              Andrew
+                            </button>
+                            <button 
+                              onClick={() => setSelectedSpeakers(['tyler'])}
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-xs border transition-colors",
+                                selectedSpeakers[0] === 'tyler'
+                                  ? "bg-blue-50 border-blue-200 text-blue-700" 
+                                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                              )}
+                            >
+                              Tyler
+                            </button>
+                              </div>
+                              </div>
+                        
+                        <div className="h-[320px] overflow-y-auto pr-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { id: "camera-multi", name: "Camera (multi)", speakers: ['all'] },
+                              { id: "media-multi", name: "Media (Multi)", speakers: ['all'] },
+                              { id: "camera", name: "Camera", speakers: ['tyler', 'andrew'] },
+                              { id: "overlay", name: "Overlay", speakers: ['tyler', 'andrew'] },
+                              { id: "list", name: "List", speakers: ['tyler', 'andrew'] },
+                              { id: "split", name: "Split", speakers: ['tyler', 'andrew'] },
+                              { id: "minimal", name: "Minimal", speakers: ['tyler', 'andrew'] },
+                              { id: "spotlight", name: "Spotlight", speakers: ['tyler', 'andrew'] },
+                              { id: "sidekick", name: "Sidekick", speakers: ['tyler', 'andrew'] },
+                              { id: "cascade", name: "Cascade", speakers: ['tyler', 'andrew'] }
+                            ].filter(layout => {
+                              if (selectedSpeakers[0] === 'all') return layout.speakers.includes('all');
+                              if (selectedSpeakers.length === 0) return true;
+                              return layout.speakers.includes(selectedSpeakers[0]);
+                            }).map((layout) => (
+                              <div 
+                                key={layout.id}
+                                className={cn(
+                                  "border rounded-lg p-2 cursor-pointer hover:border-blue-500 transition-colors",
+                                  selectedLayout === layout.id ? "border-blue-500 bg-blue-50" : ""
+                                )}
+                              onClick={() => {
+                                  setSelectedLayout(layout.id);
+                                  console.log(`Applying layout: ${layout.id}`);
+                                }}
+                              >
+                                <div className="aspect-video bg-gray-100 rounded-md mb-1 overflow-hidden relative">
+                                  <img 
+                                    src={
+                                      layout.id === "camera-multi" ? "/images/layout-previews/camera-multi.png" :
+                                      layout.id === "media-multi" ? "/images/layout-previews/media-multi.png" :
+                                      layout.id === "camera" ? "/images/layout-previews/camera.png" :
+                                      layout.id === "overlay" ? "/images/layout-previews/intro.png" :
+                                      layout.id === "list" ? "/images/layout-previews/screen.png" :
+                                      layout.id === "split" ? "/images/layout-previews/zoom.png" :
+                                      `/images/canvas-frame.png`
+                                    }
+                                    alt={`${layout.name} layout`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  {selectedSpeakers[0] === 'andrew' && layout.speakers.includes('andrew') && (
+                                    <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full border-2 border-white overflow-hidden shadow-sm">
+                                      <img 
+                                        src="/images/canvas-frame.png"
+                                        alt="Andrew"
+                                        className="w-full h-full object-cover"
+                                      />
+                              </div>
+                                  )}
+                                  {selectedSpeakers[0] === 'tyler' && layout.speakers.includes('tyler') && (
+                                    <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full border-2 border-white overflow-hidden shadow-sm">
+                                      <img 
+                                        src="/images/tyler-layout.png"
+                                        alt="Tyler"
+                                        className="w-full h-full object-cover"
+                                      />
+                              </div>
+                                  )}
+                          </div>
+                                <div className="font-medium text-xs text-center">{layout.name}</div>
+                        </div>
+                            ))}
+                              </div>
+                        </div>
+                        
+                        <div className="flex justify-center mt-4">
+                            <Button
+                            variant="outline" 
+                            className="text-xs w-full"
+                            onClick={() => {
+                              setShowLayoutGallery(true);
+                              setGalleryTab('gallery');
+                              setSelectedGalleryLayout(null);
+                            }}
                           >
-                            All
-                          </button>
-                          <button
-                            onClick={() => setSelectedSpeakers(['andrew'])}
-                            className={cn(
-                              "px-2 py-0.5 rounded-full text-xs border transition-colors",
-                              selectedSpeakers[0] === 'andrew'
-                                ? "bg-blue-50 border-blue-200 text-blue-700" 
-                                : "border-gray-200 text-gray-600 hover:border-gray-300"
-                            )}
+                            Change layout pack
+                            </Button>
+                          </div>
+                    </PopoverContent>
+                  </Popover>
+                    <div className="w-px h-4 bg-gray-200" />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          className="text-[13px] px-4 py-1.5 h-8 hover:bg-gray-50 flex items-center gap-1.5"
+                        >
+                          <Camera className="h-4 w-4" />
+                          Camera
+                  </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[240px] p-2" align="center">
+                        <div className="flex flex-col">
+                          <Button
+                            variant="ghost"
+                            className="justify-start font-normal h-9 px-3"
+                            onClick={() => {
+                              // Set canvas frame back to original
+                              setImageSrc('/images/canvas-frame.png');
+                            }}
                           >
-                            Andrew
-                          </button>
-                          <button
-                            onClick={() => setSelectedSpeakers(['tyler'])}
-                            className={cn(
-                              "px-2 py-0.5 rounded-full text-xs border transition-colors",
-                              selectedSpeakers[0] === 'tyler'
-                                ? "bg-blue-50 border-blue-200 text-blue-700" 
-                                : "border-gray-200 text-gray-600 hover:border-gray-300"
-                            )}
+                  <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-blue-500" />
+                              Andrew
+                  </div>
+                  </Button>
+                        <Button 
+                            variant="ghost"
+                            className="justify-start font-normal h-9"
+                            onClick={() => {
+                              // Update canvas frame to Tyler layout
+                              setImageSrc('/images/tyler-layout.png');
+                            }}
                           >
                             Tyler
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="h-[320px] overflow-y-auto pr-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { id: "camera-multi", name: "Camera (multi)", speakers: ['all'] },
-                            { id: "media-multi", name: "Media (Multi)", speakers: ['all'] },
-                            { id: "camera", name: "Camera", speakers: ['tyler', 'andrew'] },
-                            { id: "overlay", name: "Overlay", speakers: ['tyler', 'andrew'] },
-                            { id: "list", name: "List", speakers: ['tyler', 'andrew'] },
-                            { id: "split", name: "Split", speakers: ['tyler', 'andrew'] },
-                            { id: "minimal", name: "Minimal", speakers: ['tyler', 'andrew'] },
-                            { id: "spotlight", name: "Spotlight", speakers: ['tyler', 'andrew'] },
-                            { id: "sidekick", name: "Sidekick", speakers: ['tyler', 'andrew'] },
-                            { id: "cascade", name: "Cascade", speakers: ['tyler', 'andrew'] }
-                          ].filter(layout => {
-                            if (selectedSpeakers[0] === 'all') return layout.speakers.includes('all');
-                            if (selectedSpeakers.length === 0) return true;
-                            return layout.speakers.includes(selectedSpeakers[0]);
-                          }).map((layout) => (
-                            <div 
-                              key={layout.id}
-                              className={cn(
-                                "border rounded-lg p-2 cursor-pointer hover:border-blue-500 transition-colors",
-                                selectedLayout === layout.id ? "border-blue-500 bg-blue-50" : ""
-                              )}
-                              onClick={() => {
-                                setSelectedLayout(layout.id);
-                                console.log(`Applying layout: ${layout.id}`);
-                              }}
-                            >
-                              <div className="aspect-video bg-gray-100 rounded-md mb-1 overflow-hidden relative">
-                                <img 
-                                  src={
-                                    layout.id === "camera-multi" ? "/images/layout-previews/camera-multi.png" :
-                                    layout.id === "media-multi" ? "/images/layout-previews/media-multi.png" :
-                                    layout.id === "camera" ? "/images/layout-previews/camera.png" :
-                                    layout.id === "overlay" ? "/images/layout-previews/intro.png" :
-                                    layout.id === "list" ? "/images/layout-previews/screen.png" :
-                                    layout.id === "split" ? "/images/layout-previews/zoom.png" :
-                                    `/images/canvas-frame.png`
-                                  }
-                                  alt={`${layout.name} layout`}
-                                  className="w-full h-full object-cover"
-                                />
-                                {selectedSpeakers[0] === 'andrew' && layout.speakers.includes('andrew') && (
-                                  <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full border-2 border-white overflow-hidden shadow-sm">
-                                    <img 
-                                      src="/images/canvas-frame.png"
-                                      alt="Andrew"
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                )}
-                                {selectedSpeakers[0] === 'tyler' && layout.speakers.includes('tyler') && (
-                                  <div className="absolute bottom-1 right-1 w-6 h-6 rounded-full border-2 border-white overflow-hidden shadow-sm">
-                                    <img 
-                                      src="/images/tyler-layout.png"
-                                      alt="Tyler"
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="font-medium text-xs text-center">{layout.name}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <div className="flex justify-center mt-4">
-                        <Button 
-                          variant="outline" 
-                          className="text-xs w-full"
-                          onClick={() => {
-                            setShowLayoutGallery(true);
-                            setGalleryTab('gallery');
-                            setSelectedGalleryLayout(null);
-                          }}
-                        >
-                          Change layout pack
                         </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <div className="w-px h-4 bg-gray-200" />
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        className="text-[13px] px-4 py-1.5 h-8 hover:bg-gray-50 flex items-center gap-1.5"
-                      >
-                        <Camera className="h-4 w-4" />
-                        Camera
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[240px] p-2" align="center">
-                      <div className="flex flex-col">
-                        <Button
-                          variant="ghost"
-                          className="justify-start font-normal h-9 px-3"
-                          onClick={() => {
-                            // Set canvas frame back to original
-                            const previewImage = document.querySelector('.aspect-video.w-full img') as HTMLImageElement;
-                            if (previewImage) {
-                              previewImage.src = '/images/canvas-frame.png';
-                            }
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-blue-500" />
-                            Andrew
-                          </div>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className="justify-start font-normal h-9"
-                          onClick={() => {
-                            // Update canvas frame to Tyler layout
-                            const previewImage = document.querySelector('.aspect-video.w-full img') as HTMLImageElement;
-                            if (previewImage) {
-                              previewImage.src = '/images/tyler-layout.png';
-                            }
-                          }}
-                        >
-                          Tyler
-                        </Button>
-                        <div className="h-px bg-gray-200 my-1" />
-                        <Button
-                          variant="ghost"
-                          className="justify-start font-normal h-9"
-                          onClick={() => {
-                            // Pre-select "All" filter in layout picker
-                            setSelectedSpeakers(['all']);
-                            // Close the camera popover and open layout popover
-                            const cameraPopover = document.activeElement as HTMLButtonElement;
-                            if (cameraPopover) {
-                              cameraPopover.blur(); // This will close the camera popover
-                            }
-                            // Set a timeout to open the layout popover
-                            setTimeout(() => {
-                              setShowLayoutGallery(false); // Ensure layout gallery is closed
-                              const layoutButton = document.querySelector('button.rounded-l-lg') as HTMLButtonElement;
-                              if (layoutButton) {
-                                layoutButton.click();
+                          <div className="h-px bg-gray-200 my-1" />
+                            <Button 
+                            variant="ghost"
+                            className="justify-start font-normal h-9"
+                            onClick={() => {
+                              // Pre-select "All" filter in layout picker
+                              setSelectedSpeakers(['all']);
+                              // Close the camera popover and open layout popover
+                              const cameraPopover = document.activeElement as HTMLButtonElement;
+                              if (cameraPopover) {
+                                cameraPopover.blur(); // This will close the camera popover
                               }
-                            }, 150);
-                          }}
-                        >
-                          Change to multicam layout...
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <div className="w-px h-4 bg-gray-200" />
-                  <div className="flex items-center gap-2 px-4 py-1.5">
-                    <span className="text-[13px]">Background</span>
-                    <div className="w-4 h-4 rounded-full bg-black border border-gray-200" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
+                              // Set a timeout to open the layout popover
+                              setTimeout(() => {
+                                setShowLayoutGallery(false); // Ensure layout gallery is closed
+                                const layoutButton = document.querySelector('button.rounded-l-lg') as HTMLButtonElement;
+                                if (layoutButton) {
+                                  layoutButton.click();
+                                }
+                              }, 150);
+                            }}
+                          >
+                            Change to multicam layout...
+                            </Button>
+                                      </div>
+                      </PopoverContent>
+                    </Popover>
+                    <div className="w-px h-4 bg-gray-200" />
+                    <div className="flex items-center gap-2 px-4 py-1.5">
+                      <span className="text-[13px]">Background</span>
+                      <div className="w-4 h-4 rounded-full bg-black border border-gray-200" />
+                                      </div>
+                                      </div>
+                                      </div>
+              )}
+                                  </div>
+                                  </div>
+                                  
           {/* Right Sidebar */}
           <div className="w-[52px] border-l flex flex-col">
             <div className="flex flex-col">
@@ -701,8 +1162,8 @@ export default function EditorPage() {
                   </Button>
                 )
               })}
-            </div>
-          </div>
+                                      </div>
+                                      </div>
         </div>
 
         {/* Timeline - Now outside the flex container to be full width */}
@@ -718,124 +1179,124 @@ export default function EditorPage() {
               </Button>
               <div className="text-sm text-gray-600">
                 00s / 40s
-              </div>
+                                      </div>
               <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
                 1x
               </Button>
-            </div>
+                                      </div>
 
             <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
+                      <Popover>
+                        <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 gap-1.5">
                     <div className="relative flex items-center justify-center">
                       <div className="w-[14px] h-[14px] rounded-full bg-red-500" />
                       <div className="absolute inset-0 rounded-full border-2 border-red-500 opacity-30" />
                     </div>
                     <span className="text-xs text-black">Record</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[350px] p-0" align="start">
-                  {!showScreenOptions ? (
-                    // Main recording options screen
-                    <>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[350px] p-0" align="start">
+                            {!showScreenOptions ? (
+                              // Main recording options screen
+                              <>
                       <h3 className="text-lg font-medium mb-2 p-3">What would you like to record?</h3>
-                      <div className="flex flex-col gap-1">
-                        <button 
-                          onClick={() => handleRecordingChoice('camera')}
-                          className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                        >
-                          <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                            <img src="/images/record-camera.png" alt="Camera" className="w-full h-full object-contain" />
-                          </div>
-                          <span className="text-sm font-medium">Camera</span>
-                        </button>
+                                <div className="flex flex-col gap-1">
+                                  <button 
+                                    onClick={() => handleRecordingChoice('camera')}
+                                    className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                                  >
+                                    <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                                      <img src="/images/record-camera.png" alt="Camera" className="w-full h-full object-contain" />
+                                    </div>
+                                    <span className="text-sm font-medium">Camera</span>
+                                  </button>
 
-                        <button 
+                                  <button 
                           onClick={() => setShowDesktopAppDialog(true)}
-                          className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                        >
-                          <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                            <img src="/images/record-screen.png" alt="Screen" className="w-full h-full object-contain" />
-                          </div>
-                          <span className="text-sm font-medium">Screen</span>
-                        </button>
+                                    className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                                  >
+                                    <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                                      <img src="/images/record-screen.png" alt="Screen" className="w-full h-full object-contain" />
+                                    </div>
+                                    <span className="text-sm font-medium">Screen</span>
+                                  </button>
 
-                        <button 
-                          onClick={() => handleRecordingChoice('voice')}
-                          className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                        >
-                          <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                            <img src="/images/record-audio.png" alt="Audio only" className="w-full h-full object-contain" />
-                          </div>
-                          <span className="text-sm font-medium">Audio only</span>
-                        </button>
+                                  <button 
+                                    onClick={() => handleRecordingChoice('voice')}
+                                    className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                                  >
+                                    <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                                      <img src="/images/record-audio.png" alt="Audio only" className="w-full h-full object-contain" />
+                                    </div>
+                                    <span className="text-sm font-medium">Audio only</span>
+                                  </button>
 
-                        <hr className="my-1 border-gray-200" />
+                                  <hr className="my-1 border-gray-200" />
 
-                        <button 
-                          onClick={() => handleRecordingChoice('collaborative')}
-                          className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                        >
-                          <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
-                            <img src="/images/record-rooms.png" alt="Record with others" className="w-full h-full object-contain" />
-                          </div>
-                          <span className="text-sm font-medium">Record with others</span>
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    // Screen options screen
-                    <>
-                      <div className="flex items-center mb-4">
-                        <button 
-                          onClick={handleBackFromScreenOptions}
-                          className="flex items-center text-sm text-gray-600 hover:text-gray-900"
-                        >
-                          <ChevronDown className="h-4 w-4 transform rotate-90 mr-1" />
-                          Back
-                        </button>
-                        <h3 className="text-lg font-medium flex-1 text-center pr-5">Screen Recording Options</h3>
-                      </div>
-                      
-                      <div className="flex flex-col gap-3">
-                        <button 
-                          onClick={() => handleScreenOptionChoice('new-layer')}
-                          className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
-                        >
-                          <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                            <Monitor className="h-8 w-8 text-blue-500" />
-                            <MicOff className="h-5 w-5 text-red-500 absolute -bottom-1 -right-1" />
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium">New Layer</span>
-                            <p className="text-xs text-gray-500">Without audio</p>
-                          </div>
-                        </button>
-                        
-                        <button 
-                          onClick={() => handleScreenOptionChoice('new-scene')}
-                          className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
-                        >
-                          <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
-                            <Monitor className="h-8 w-8 text-green-500" />
-                            <Mic className="h-5 w-5 text-green-500 absolute -bottom-1 -right-1" />
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium">Insert into Script</span>
-                            <p className="text-xs text-gray-500">With audio narration</p>
-                          </div>
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </PopoverContent>
-              </Popover>
+                                  <button 
+                                    onClick={() => handleRecordingChoice('collaborative')}
+                                    className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                                  >
+                                    <div className="h-14 w-14 rounded-lg overflow-hidden flex-shrink-0">
+                                      <img src="/images/record-rooms.png" alt="Record with others" className="w-full h-full object-contain" />
+                                    </div>
+                                    <span className="text-sm font-medium">Record with others</span>
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              // Screen options screen
+                              <>
+                                <div className="flex items-center mb-4">
+                                  <button 
+                                    onClick={handleBackFromScreenOptions}
+                                    className="flex items-center text-sm text-gray-600 hover:text-gray-900"
+                                  >
+                                    <ChevronDown className="h-4 w-4 transform rotate-90 mr-1" />
+                                    Back
+                                  </button>
+                                  <h3 className="text-lg font-medium flex-1 text-center pr-5">Screen Recording Options</h3>
+                                </div>
+                                
+                                <div className="flex flex-col gap-3">
+                                  <button 
+                                    onClick={() => handleScreenOptionChoice('new-layer')}
+                                    className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
+                                  >
+                                    <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
+                                      <Monitor className="h-8 w-8 text-blue-500" />
+                                      <MicOff className="h-5 w-5 text-red-500 absolute -bottom-1 -right-1" />
+                                    </div>
+                                    <div>
+                                      <span className="text-sm font-medium">New Layer</span>
+                                      <p className="text-xs text-gray-500">Without audio</p>
+                                    </div>
+                                  </button>
+                                  
+                                  <button 
+                                    onClick={() => handleScreenOptionChoice('new-scene')}
+                                    className="flex items-center gap-4 p-3 w-full hover:bg-gray-50 transition-colors text-left border rounded-lg"
+                                  >
+                                    <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0">
+                                      <Monitor className="h-8 w-8 text-green-500" />
+                                      <Mic className="h-5 w-5 text-green-500 absolute -bottom-1 -right-1" />
+                                    </div>
+                                    <div>
+                                      <span className="text-sm font-medium">Insert into Script</span>
+                                      <p className="text-xs text-gray-500">With audio narration</p>
+                                    </div>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                        </PopoverContent>
+                      </Popover>
               <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs">
                 <Split className="h-3.5 w-3.5" />
-                Split
-              </Button>
-            </div>
+                      Split
+                    </Button>
+                  </div>
 
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">Expand timeline</span>
@@ -850,11 +1311,11 @@ export default function EditorPage() {
                 <Button variant="ghost" size="icon" className="h-8 w-8">
                   <Plus className="h-4 w-4" />
                 </Button>
-              </div>
+                </div>
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <Settings className="h-4 w-4" />
               </Button>
-            </div>
+          </div>
           </div>
 
           {/* Timeline Content */}
@@ -875,10 +1336,10 @@ export default function EditorPage() {
                 {/* Timeline content */}
                 <div className="absolute top-6 left-0 right-0 bottom-0">
                   {/* Timeline content will go here */}
-                </div>
-              </div>
-            </div>
-          </div>
+                        </div>
+                      </div>
+                        </div>
+                      </div>
         </div>
       </div>
 
@@ -1487,4 +1948,4 @@ export default function EditorPage() {
       </Dialog>
     </div>
   )
-}
+} 
